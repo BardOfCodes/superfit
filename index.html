@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Residual Primitive Fitting of 3D Shapes with SuperFrusta">
+  <meta name="keywords" content="SuperFrusta SuperFrustum ResFit Primitive Fitting 3D Shapes Inverse Graphics Shape Decomposition">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Residual Primitive Fitting of 3D Shapes with SuperFrusta</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" type="image/png" href="./static/images/icon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- Click to Zoom Styles -->
+  <style>
+    .zoomable {
+      cursor: zoom-in;
+      transition: transform 0.2s ease;
+    }
+    .zoomable:hover {
+      opacity: 0.95;
+    }
+    .zoom-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      overflow: hidden;
+    }
+    .zoom-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .zoom-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: grab;
+      overflow: hidden;
+    }
+    .zoom-container.dragging {
+      cursor: grabbing;
+    }
+    .zoom-container.at-min-zoom {
+      cursor: zoom-out;
+    }
+    .zoom-overlay img {
+      max-width: 95%;
+      max-height: 95%;
+      object-fit: contain;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .zoom-hint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      pointer-events: none;
+      text-align: center;
+    }
+    .zoom-level {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 8px 12px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .zoom-controls {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+    }
+    .zoom-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .zoom-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-widescreen">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-2 publication-title">Residual Primitive Fitting of 3D Shapes with SuperFrusta</h1>
+          <div class="is-size-4 publication-authors mt-3 darkest-font">
+            <div class="columns is-mobile">
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://bardofcodes.github.io/">Aditya Ganeshan</a><sup><span class="author-star" style="font-size: 0.75em;"> &clubs;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://mgadelha.me/">Matheus Gadelha</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://www.tgroueix.com/">Thibault Groueix</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://czq142857.github.io/">Zhiqin Chen</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            </div>
+            <div class="columns is-mobile">
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://www.cse.iitb.ac.in/~sidch/">Siddhartha Chaudhuri</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="http://www.vovakim.com/">Vladimir Kim</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://yifita.github.io/">Wang Yifan</a><sup><span class="author-star" style="font-size: 0.75em;"> &diamondsuit;</span></sup></span>
+            </div>
+            <div class="column ml-2 mr-2">
+            <span class="author-block">
+              <a href="https://dritchie.github.io/">Daniel Ritchie</a><sup><span class="author-star" style="font-size: 0.75em;"> &clubs;</span></sup>
+            </span>
+          </div>
+          </div>
+          </div>
+          <div class="is-size-4 publication-authors mt-3">
+            <div class="columns is-mobile is-centered">
+              <div class="column is-narrow ml-4 mr-4">
+                <span class="author-star" style="font-size: 1.0em;"> &clubs;</span> <span class="author-block">Brown University</span>
+              </div>
+              <div class="column is-narrow ml-4 mr-4">
+                <span class="author-star" style="font-size: 1.0em;"> &diamondsuit;</span> <span class="author-block">Adobe Research</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Icons Row -->
+          <div class="columns has-text-centered is-centered is-mobile mt-3 mb-0 is-multiline" style="align-items: center;">
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/paper.pdf">
+                    <img src="./static/images/paper_frontpage.png" style="max-height: 150px;">
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/paper_low_res.pdf">
+                    <img src="./static/images/paper_frontpage.png" style="max-height: 150px;">
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/supp.pdf">
+                    <img src="./static/images/supp_frontpage.png" style="max-height: 150px">
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://arxiv.org/abs/XXXX.XXXXX">
+                    <img src="./static/images/arxiv-logo.svg" style="max-height: 100px">
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://github.com/bardofcodes/superfit/">
+                    <img src="./static/images/github-logo.svg"  style="max-height: 100px">
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="#bibtex">
+                    <span style="font-size: 60px; color: #2a2a2a !important;">
+                        <i class="fas fa-quote-right"></i>
+                    </span>
+                </a>
+            </div>
+          </div>
+          
+          <!-- Labels Row -->
+          <div class="columns has-text-centered is-centered is-mobile mt-1 mb-0 is-multiline">
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/paper.pdf">
+                    <h4> Paper </h4>
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/paper_lowres.pdf">
+                    <h4> Low Res </h4>
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://bardofcodes.github.io/papers/superfit/supp.pdf">
+                    <h4> Supp. </h4>
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://arxiv.org/abs/XXXX.XXXXX">
+                    <h4> ArXiv </h4>
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="https://github.com/bardofcodes/superfit/">
+                    <h4> Code </h4>
+                </a>
+            </div>
+            <div class="column ml-2 mr-2 item">
+                <a href="#bibtex">
+                    <h4> BibTeX </h4>
+                </a>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Banner Image Section -->
+<section class="section mt-1 pt-1">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered">
+      <div class="column">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/teaser.jpg" style="width: 100%; border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <div class="container is-max-widescreen">
+        <div class="columns is-centered has-text-centered">
+          <div class="column ">
+        <br>
+        <h2 class="subtitle has-text-justified is-size-5">
+            <b>T.L.D.R.:</b> We introduce a framework for converting 3D shapes into compact and editable assemblies of analytic primitives. Our approach combines <b>SuperFrustum</b>, an expressive, editable, and optimizable primitive, with <b>ResFit</b>, an iterative fitting algorithm. Together, they achieve <i>state-of-the-art</i> reconstruction quality while using significantly fewer primitives than prior work.
+        </h2>
+      </div>
+      </div>
+      </div>
+</section>
+
+<!-- News Section -->
+<section class="section mt-1 pt-1">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered">
+      <div class="column">
+        <div style="background: #f5f5f5; border-left: 4px solid #4a90e2; border-radius: 8px; padding: 1.5rem 2rem;">
+          <h3 class="title is-5 has-text-weight-semibold mb-3" style="color: #4a90e2; letter-spacing: 0.5px;">
+            <i class="fas fa-bullhorn" style="margin-right: 0.5rem;"></i>NEWS
+          </h3>
+          <div class="content is-size-5">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              <li class="mb-2">
+                <span class="has-text-weight-semibold">[December 2025]</span> 
+                Code coming soon!
+              </li>
+              <li class="mb-2">
+                <span class="has-text-weight-semibold">[December 2025]</span> 
+                Paper and project page released.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Qualitative Results Section -->
+<section class="section" style="background-color: #f9f9f9;">
+  <div class="container is-max-widescreen">
+    
+    <!-- Main Title -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-2">Qualitative Results</h2>
+      </div>
+    </div>
+
+    <!-- Subsection: Primitive Assembly Shaders -->
+    <div class="columns is-centered has-text-centered mt-5">
+      <div class="column">
+        <h3 class="title is-4">Primitive Assembly Shaders</h3>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            We infer parsimonious assemblies of <b>SuperFrusta</b> that provide an SDF function that is sufficiently accurate as well as computationally cheap that it can be visualized with real-time sphere tracing. Click on a mesh on the left side to load a shader containing the inferred SuperFrusta assembly on the right. The loaded WebGL shader is sphere tracing the geometry in real-time.
+          </p>
+        </div>
+        <div class="box mt-3" style="background-color: #eaeaea; max-width: 800px; margin-left: auto; margin-right: auto;">
+          <p class="is-size-12" style="margin-bottom: 0;">
+            <b>Note:</b> We developed <b>SySL</b>, a library for compiling symbolic scene expressions into shader code (and the surrounding glue). It will be released soon!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Shader Gallery -->
+    <!-- Top Row: Mesh Render + Shader Iframe -->
+    <div class="columns is-multiline mt-4">
+      <!-- Left Column: Mesh Render -->
+      <div class="column is-5-desktop is-12-tablet is-12-mobile">
+        <div class="box p-2">
+          <h4 class="title is-6 has-text-centered mb-3">Mesh Render</h4>
+          <div id="mesh-render-placeholder" class="has-text-centered" style="color: #888; border: 2px dashed #ccc; border-radius: 4px; height: 600px; display: flex; align-items: center; justify-content: center;">
+            <div>
+              <span class="icon is-large">
+                <i class="fas fa-cube fa-3x"></i>
+              </span>
+              <p class="mt-3 is-size-6">Select a shape below</p>
+            </div>
+          </div>
+          <div id="mesh-render-container" style="height: 600px; display: none; align-items: center; justify-content: center;">
+            <img id="mesh-render-image" src="" alt="Mesh Render" style="max-width: 100%; max-height: 100%; border-radius: 4px; object-fit: contain;">
+          </div>
+        </div>
+      </div>
+      <!-- Right Column: Shader Iframe -->
+      <div class="column is-7-desktop is-12-tablet is-12-mobile">
+        <div class="box p-2">
+          <h4 class="title is-6 has-text-centered mb-3">SuperFrusta Assembly (GLSL Shader)</h4>
+          <div id="shader-gallery-placeholder" class="has-text-centered" style="color: #888; border: 2px dashed #ccc; border-radius: 4px; height: 600px; display: flex; align-items: center; justify-content: center;">
+            <div>
+              <span class="icon is-large">
+                <i class="fas fa-play-circle fa-3x"></i>
+              </span>
+              <p class="mt-3 is-size-6">Select a shape below to load the shader</p>
+            </div>
+          </div>
+          <iframe id="shader-gallery-iframe" src="" style="width: 100%; height: 600px; border: none; display: none;"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row: Thumbnail Grid -->
+    <div class="columns is-centered mb-4">
+      <div class="column">
+        <div class="box p-3">
+          <h4 class="title is-6 has-text-centered mb-3">Select a Shape</h4>
+          <div class="shader-grid">
+            <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px;">
+              <div class="shader-thumb" data-shader="1"><img src="./static/shaders/example_1/img.png" alt="Example 1"></div>
+              <div class="shader-thumb" data-shader="2"><img src="./static/shaders/example_2/img.png" alt="Example 2"></div>
+              <div class="shader-thumb" data-shader="3"><img src="./static/shaders/example_3/img.png" alt="Example 3"></div>
+              <div class="shader-thumb" data-shader="4"><img src="./static/shaders/example_4/img.png" alt="Example 4"></div>
+              <div class="shader-thumb" data-shader="5"><img src="./static/shaders/example_5/img.png" alt="Example 5"></div>
+              <div class="shader-thumb" data-shader="6"><img src="./static/shaders/example_6/img.png" alt="Example 6"></div>
+              <div class="shader-thumb" data-shader="7"><img src="./static/shaders/example_7/img.png" alt="Example 7"></div>
+              <div class="shader-thumb" data-shader="8"><img src="./static/shaders/example_8/img.png" alt="Example 8"></div>
+              <div class="shader-thumb" data-shader="9"><img src="./static/shaders/example_9/img.png" alt="Example 9"></div>
+              <div class="shader-thumb" data-shader="10"><img src="./static/shaders/example_10/img.png" alt="Example 10"></div>
+              <div class="shader-thumb" data-shader="11"><img src="./static/shaders/example_11/img.png" alt="Example 11"></div>
+              <div class="shader-thumb" data-shader="12"><img src="./static/shaders/example_12/img.png" alt="Example 12"></div>
+              <div class="shader-thumb" data-shader="13"><img src="./static/shaders/example_13/img.png" alt="Example 13"></div>
+              <div class="shader-thumb" data-shader="14"><img src="./static/shaders/example_14/img.png" alt="Example 14"></div>
+              <div class="shader-thumb" data-shader="15"><img src="./static/shaders/example_15/img.png" alt="Example 15"></div>
+              <div class="shader-thumb" data-shader="16"><img src="./static/shaders/example_16/img.png" alt="Example 16"></div>
+              <div class="shader-thumb" data-shader="17"><img src="./static/shaders/example_17/img.png" alt="Example 17"></div>
+              <div class="shader-thumb" data-shader="18"><img src="./static/shaders/example_18/img.png" alt="Example 18"></div>
+              <div class="shader-thumb" data-shader="19"><img src="./static/shaders/example_19/img.png" alt="Example 19"></div>
+              <div class="shader-thumb" data-shader="20"><img src="./static/shaders/example_20/img.png" alt="Example 20"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unload Shader Button -->
+    <div id="shader-gallery-unload-container" class="has-text-centered mb-4" style="display: none;">
+      <button class="button is-danger is-medium" id="unload-shader-gallery-btn">
+        <span class="icon">
+          <i class="fas fa-stop"></i>
+        </span>
+        <span>Unload Shader</span>
+      </button>
+    </div>
+
+    <!-- Editing Instructions -->
+    <div class="box mt-4" style="background-color: #eaeaea; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <h4 class="title is-5 mb-3">Controls</h4>
+      <div class="content is-size-6" style="margin-bottom: 0;">
+        <ul style="margin-top: 0; margin-bottom: 0;">
+          <li><b>Camera Rotate:</b> Click + Drag</li>
+          <li><b>Camera Pan:</b> Shift + Drag</li>
+        </ul>
+      </div>
+    </div>
+    <!-- Subsection: Additional Qualitative Results -->
+    <div class="columns is-centered has-text-centered mt-5">
+      <div class="column">
+        <h3 class="title is-4">Additional Qualitative Results</h3>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Our primitive assemblies capture a wide range of shapes, including hollow forms (wine glass), curved & toroidal parts (bikes, bowls), intricate geometry (robots, grapes), and smooth organic shapes (horse, bear). The assemblies are simultaneously accurate, compact, and semantically interpretable.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="columns is-centered">
+      <div class="column">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/qualitative_examples.jpg" class="zoomable" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+        <h2 class="subtitle has-text-centered is-size-5 mt-3">
+          Our method reconstructs target shapes with high geometric fidelity and produces interpretable assemblies using compact, minimally-overlapping primitives. In contrast, prior methods often lose fine structure and generate assemblies with substantial primitive overlap.
+        </h2>
+      </div>
+    </div>
+
+    <!-- Subsection: Interactively Editing Textured Primitive Assemblies -->
+    <div class="columns is-centered has-text-centered mt-5">
+      <div class="column">
+        <h3 class="title is-4">Interactively Editing Textured Primitive Assemblies</h3>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            We can convert textured meshes into <b>textured primitive assemblies</b>, which makes many edits significantly easier to perform. More importantly, we can render and interact with these assemblies <b>directly in a simple WebGL shader</b>—highlighting the efficiency and deployability of our representation. The compact analytic form of SuperFrusta enables real-time sphere tracing with interactive editing capabilities, all running efficiently in the browser. More details <a href="#editable-deployable-assets">here</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="columns is-centered">
+      <div class="column">
+        <div id="editing-demo-container">
+          <!-- Banner Image (shown initially) -->
+          <div id="editing-demo-banner">
+            <div class="box m-1 p-1 is-vcentered">
+              <figure class="image">
+                <img src="./static/shaders/edit_example/editing_cover_image.png" style="border: 1px solid #e0e0e0; width: 100%;">
+              </figure>
+            </div>
+            <div class="has-text-centered mt-4 mb-2">
+              <button class="button is-dark is-medium" id="load-editing-demo-btn">
+                <span class="icon">
+                  <i class="fas fa-play"></i>
+                </span>
+                <span>Load Interactive Demo</span>
+              </button>
+            </div>
+          </div>
+          <!-- Iframe (shown after button click) -->
+          <div id="editing-demo-iframe" style="display: none;">
+            <iframe src="" style="width: 100%; height: 600px; border: 1px solid #e0e0e0;"></iframe>
+            <div class="has-text-centered mt-4 mb-2">
+              <button class="button is-danger is-medium" id="unload-editing-demo-btn">
+                <span class="icon">
+                  <i class="fas fa-stop"></i>
+                </span>
+                <span>Unload Demo</span>
+              </button>
+            </div>
+          </div>
+          <!-- Editing Instructions -->
+          <div class="box mt-4" style="background-color: #eaeaea; max-width: 800px; margin-left: auto; margin-right: auto;">
+            <h4 class="title is-5 mb-3">Controls</h4>
+            <div class="content is-size-6" style="margin-bottom: 0;">
+              <ul style="margin-top: 0; margin-bottom: 0;">
+                <li><b>Camera Rotate:</b> Click + Drag</li>
+                <li><b>Camera Pan:</b> Shift + Drag</li>
+                <li><b>Parametric Editing:</b> Click a primitive to select it. A left-side panel exposes its parameters for real-time editing.</li>
+                <li><b>Translate:</b> <code>G</code> (constrain with <code>X</code>, <code>Y</code>, or <code>Z</code>)</li>
+                <li><b>Scale:</b> <code>S</code></li>
+                <li><b>Cancel Operation:</b> <code>Esc</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<style>
+  .shader-thumb {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+  .shader-thumb:hover {
+    border-color: #4a90e2;
+    transform: scale(1.05);
+  }
+  .shader-thumb.active {
+    border-color: #3273dc;
+    box-shadow: 0 0 8px rgba(50, 115, 220, 0.5);
+  }
+  .shader-thumb img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
+
+<!-- Demo scripts loaded from external file -->
+<script src="./static/js/demos.js"></script>
+
+
+<!-- Abstract Section -->
+<section class="section">
+    <div class="container is-max-widescreen">
+      <div class="columns is-centered has-text-centered">
+        <div class="column">
+          <h2 class="title is-3">Abstract</h2>
+          <div class="content has-text-justified is-size-5">
+            <p>
+              We introduce a framework for converting 3D shapes into compact and editable assemblies of analytic primitives, directly addressing the persistent trade-off between reconstruction fidelity and parsimony. Our approach combines two key contributions: a novel primitive, termed <b>SuperFrustum</b>, and an iterative fitting algorithm, <b>Residual Primitive Fitting (ResFit)</b>. 
+              <b>SuperFrustum</b> is an analytical primitive that is simultaneously (1) <em>expressive</em>, being able to model various common solids such as cylinders, spheres, cones and their tapered and bent forms, (2) <em>editable</em>, being compactly parameterized with only 8 parameters, and (3) <em>optimizable</em>, with a signed distance field differentiable w.r.t. its parameters almost everywhere.
+              <b>ResFit</b> is an unsupervised procedure that interleaves global shape analysis with local primitive optimization, iteratively fitting primitives to the unexplained residual of a shape to discover parsimonious yet accurate decompositions for each input shape. On diverse 3D benchmarks, our method achieves state-of-the-art results, <b>improving IoU by over 9 points</b> while using <b>nearly half as many primitives</b> as prior work. The resulting assemblies bridge the gap between dense 3D data and human-controllable design, producing high-fidelity and editable shape programs.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+
+
+<!-- Method Section: SuperFrustum -->
+<section class="section">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered has-text-centered">
+      <div class="column ">
+        <h2 class="title is-2">SuperFrustum: An <i>Expressive</i>, <i>Editable</i> & <i>Optimizable</i> Primitive</h2>
+      </div>
+    </div>
+
+    <!-- Intro with Comparison Table -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="content has-text-justified is-size-5">
+          <p>
+            An ideal primitive for inverse graphics must be <em>expressive</em> enough for diverse forms, <em>editable</em> via intuitive controls, and robustly <em>optimizable</em>. 
+          </p>
+          <p>
+            Existing primitive families often fall short on one or more of these criteria. We introduce <b>SuperFrustum</b>, a unified analytic primitive designed to meet all three desiderata.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box" style="padding: 1.5rem;">
+          <table class="table is-bordered is-hoverable is-fullwidth" style="margin-bottom: 0;">
+            <thead>
+              <tr>
+                <th>Primitive</th>
+                <th class="has-text-centered">Expressive</th>
+                <th class="has-text-centered">Editable</th>
+                <th class="has-text-centered">Optimizable</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Superquadrics</td>
+                <td class="has-text-centered" style="color: #c0392b;">✗</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+              </tr>
+              <tr>
+                <td>Algebraic Surfaces</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #c0392b;">✗</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+              </tr>
+              <tr>
+                <td>Multi-type</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #c0392b;">✗</td>
+              </tr>
+              <tr style="background-color: #fff5c8; font-weight: bold;">
+                <td><b>SuperFrusta</b></td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+                <td class="has-text-centered" style="color: #27ae60;">✓</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expressive -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <h2 class="title is-4">Expressive</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            SuperFrustum spans a wide range of common solids—<b>cuboids</b>, <b>cylinders</b>, <b>cones</b>, <b>spheres</b>, and <b>toroidal variants</b>—and can produce more complex shapes such as bent, hollow, or smoothly capped forms.
+          </p>
+          <p>
+            <b>Side Note</b>: SuperFrustum can be parameterized to represent many of the "Geons" - 3D forms corresponding to the simple parts of an object in Biederman's <a href="https://en.wikipedia.org/wiki/Recognition-by-components_theory">recognition-by-components</a> theory. While algerbaic surfaces can represent a wide range of shape they fail to model canonical solids and geons.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/superfrustum_variety.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editable -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/superFrustum_param.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <h2 class="title is-4">Editable</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            SuperFrustum is compactly parameterized with only <b>8 intuitive parameters</b>:
+          </p>
+          <ul>
+            <li><b>Scale (s)</b>: Anisotropic scaling along each axis</li>
+            <li><b>Rounding (r)</b>: Profile rounding</li>
+            <li><b>Dilation (d)</b>: Uniform dilation</li>
+            <li><b>Taper (t)</b>: Tapering along the axis</li>
+            <li><b>Bulge (b)</b>: Axial bulging</li>
+            <li><b>Onion (o)</b>: Shell/hollowing thickness</li>
+          </ul>
+          <p>
+            This compact parameterization makes the primitives easy to manipulate and edit by users, bridging the gap between dense 3D data and human-controllable design.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optimizable -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <h2 class="title is-4">Optimizable</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            SuperFrustum admits a signed distance field (SDF) that is <b>C⁰-continuous</b> and <b>fully differentiable</b> (almost everywhere) with respect to all parameters.
+          </p>
+          <p>
+            This enables robust inverse modeling and gradient-based optimization. As a result, SuperFrustum can be reliably fitted to target geometry through standard gradient descent without the need for non-differentiable heuristics.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/commpressed.gif" style="width: 100%;" alt="SuperFrustum optimization">
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- Motivation / Origins -->
+    <div class="columns is-centered mt-5">
+      <div class="column">
+        <div class="content has-text-centered is-size-5 box" style="background-color: #f5f5f5; padding: 1.5rem; border-radius: 8px;">
+          <p>
+            <em>The design of SuperFrustum builds on analytic functions uncovered by the <b>Shadertoy</b> and <b>Demoscene</b> communities in their pursuit of highly expressive analytic forms with minimal description length 
+            [<a href="https://www.shadertoy.com/view/MsVGWG">sdUberprim</a>, 
+            <a href="https://www.shadertoy.com/view/Xdy3Rm">sdSuperprim</a>, 
+            <a href="https://www.shadertoy.com/view/3lBGzt">ChamferBox SP</a>, 
+            <a href="https://www.shadertoy.com/view/Xds3zN">Inigo Quilez's SDF Functions</a>]. 
+            We find that, when carefully adapted, these formulations are exceptionally well-suited for inverse modeling.</em>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Method Section: ResFit -->
+<section class="section">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-2">ResFit: Residual Primitive Fitting</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            To achieve parsimonious assemblies, an expressive primitive must be paired with an equally effective inference algorithm. We propose <b>Residual Primitive Fitting (ResFit)</b>, an unsupervised procedure that tightly interleaves global shape analysis with local primitive optimization.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interleaving Shape Decomposition and Primitive Optimization -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/overview.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <h2 class="title is-4">Interleaving Shape Decomposition and Primitive Optimization</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Instead of optimizing a large set of primitives jointly from scratch, ResFit first analyzes the input geometry to propose initial structures based on global cues. These primitives are then refined via gradient descent to conform to the local geometry.
+          </p>
+          <p>
+            The resulting assembly is subtracted from the target shape, and the process repeats on the <b>unexplained residual</b>. By alternating between proposing global structure and optimizing local parameters, ResFit allows these two signals to mutually inform each other, producing assemblies that are both compact and high-fidelity.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decomposition Routine - Single Column -->
+    <div class="columns is-centered mt-5">
+      <div class="column">
+        <h2 class="title is-4 has-text-centered">Morphological Shape Decomposition</h2>
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/msd.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+        <div class="content has-text-justified is-size-5 mt-3">
+          <p>
+            ResFit initializes primitives from volumetric regions produced by Morphological Shape Decomposition (MSD). MSD is an iterative "peel the thickest part first" technique: at each step, it finds the largest connected region of roughly uniform thickness, extracts it, removes it from the shape, and repeats on the residual. This yields regions that form suitable initialization seeds for SuperFrusta—capturing non-convex structures such as bicycle tires, curved tails, and bowl rims that convex decomposition methods would over-partition.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ResFit Example - Single Column -->
+    <div class="columns is-centered mt-5">
+      <div class="column">
+        <h2 class="title is-4 has-text-centered">ResFit in Action</h2>
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/res_fit_seq.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+        <div class="content has-text-justified is-size-5 mt-3">
+          <p>
+            The iterative analysis-optimization loop enables self-correction as new parts are added. To prevent over-parameterization, we seed few primitives per round and employ parsimony-aware optimization: a soft regularizer penalizes redundancy during fitting, while hard pruning removes parts that degrade the objective. To address under-parameterization, primitives are optimized based on their local support, and the full assembly is re-optimized in each round. This allows the system to converge toward a compact and coherent structure.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Results Section: Pareto Frontier -->
+<section class="section" style="background-color: #f9f9f9;">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-2">Resetting the Quality-Parsimony Pareto Frontier</h2>
+      </div>
+    </div>
+
+    <!-- Pareto Plot - Two Column -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Our approach redefines the reconstruction–parsimony Pareto Frontier. Compared to state-of-the-art methods like Marching Primitives (MPS) and Primitive Anything (PA), we achieve markedly lower reconstruction error using significantly fewer primitives.
+          </p>
+          <p>
+            On two different 3D benchmarks, our method <b>improves IoU by 6-9 points</b> while using roughly <b>half as many primitives</b> and reducing volumetric overlap by over <b>3×</b>. The inferred primitives also demonstrate higher semantic coherence, with more meaningful distinctions between parts.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/pareto_front.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparative Comparison -->
+    <div class="columns is-centered mt-5">
+      <div class="column">
+        <h2 class="title is-4 has-text-centered">Comparative Qualitative Results</h2>
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/comparitive_qual.jpg" class="zoomable" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+        <div class="content has-text-justified is-size-5 mt-3">
+          <p>
+            Our method produces assemblies with higher geometric fidelity and significantly less primitive overlap compared to prior methods. While baselines often generate fragmented or heavily overlapping primitives, our approach yields compact, semantically meaningful decompositions.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Applications Section -->
+<section class="section">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-2">Applications</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Our representation enables several downstream applications that combine visual quality, editability, and analytic structure.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editable Assets -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/editing.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+      
+      <div class="column is-half" id="editable-deployable-assets">
+        <h2 class="title is-4">Editable & Deployable Assets</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Our primitives are simultaneously compact, editable, and capable of high-fidelity reconstruction, allowing them to serve directly as deployable 3D assets. By assigning per-primitive spherical textures, the resulting textured assemblies can be directly deployed in real-time sphere-traced scenes while remaining fully editable.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSG Programs -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <h2 class="title is-4">Inferring CSG Programs</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Although our framework is designed for smooth, soft-union assemblies, it can also infer discrete Constructive Solid Geometry (CSG) programs composed of canonical solids (cuboids, cylinders, cones, spheres). Our approach achieves nearly the same CSG reconstruction accuracy as dedicated methods while using fewer primitives.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/solidCSG.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image to Primitive -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/img_to_prim.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <h2 class="title is-4">Image to Primitive Assembly</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            Our method can seamlessly be combined with 3D generative models to achieve image-to-primitive assembly. By using state-of-the-art text/image-to-3D models followed by ResFit, we can convert any image into an editable primitive assembly.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic Segmentation -->
+    <div class="columns is-vcentered mt-4">
+      <div class="column is-half">
+        <h2 class="title is-4">Semantic Segmentation Enrichment</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            ResFit can help enhance coarse semantic labels. By intersecting coarse semantic annotations with our primitive assemblies, we can subdivide large parts into functionally meaningful subcomponents without drifting outside their semantic boundaries.
+          </p>
+        </div>
+      </div>
+      
+      <div class="column is-half">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/segmentation.png" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Failure Cases Section -->
+<section class="section" style="background-color: #f9f9f9;">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-2">Failure Cases</h2>
+        <div class="content has-text-justified is-size-5">
+          <p>
+            While ResFit performs reliably across a broad range of shapes, we observe several characteristic failure modes:
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="columns is-centered">
+      <div class="column">
+        <div class="box m-1 p-1 is-vcentered">
+          <figure class="image">
+            <img src="./static/images/Failures.jpg" style="border: 1px solid #e0e0e0;">
+          </figure>
+        </div>
+        <div class="content has-text-justified is-size-5 mt-4">
+          <ul>
+            <li><b>(a) Non-uniform hollow structures:</b> Shell-like shapes (helmets, hats, shoes) with thin walls enclosing large voids require many primitives without explicit negative-space operations.</li>
+            <li><b>(b) Multi-arc or winding structures:</b> Each primitive contains only a single bending arc, so long spirals or multi-turn curves get fragmented into many short segments.</li>
+            <li><b>(c) Overlapping assemblies:</b> Categories like chairs may require overlapping primitives when local curvature cannot be matched by the current primitive's shape space.</li>
+            <li><b>(d) Flat curved surfaces:</b> When parts are extremely thin (e.g., dragon wings), gradient magnitudes become very small, leading to poor fits.</li>
+            <li><b>(e) Irregular thickness in hollow containers:</b> Inconsistent wall thickness causes MSD to decompose shapes into thin slats instead of coherent onioned cylinders.</li>
+            <li><b>(f) Semantic spillover:</b> Achieving high geometric fidelity sometimes requires primitives whose spatial support crosses semantic boundaries (e.g., cheek extending into eye region).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- BibTeX Section -->
+<section class="section">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered">
+      <div class="column is-full">
+        <h2 class="title is-3" id="bibtex">BibTeX</h2>
+        <div class="box" style="padding: 0.1rem;">
+          <pre style="background-color: #f5f5f5;; overflow-x: auto;"><code>@misc{ganeshan2025superfit,
+  title={Residual Primitive Fitting of 3D Shapes with SuperFrusta}, 
+  author={Aditya Ganeshan and Matheus Gadelha and Thibault Groueix and Zhiqin Chen and Siddhartha Chaudhuri and Vladimir Kim and Wang Yifan and Daniel Ritchie},
+  year={2025},
+  eprint={2512.00000},
+  archivePrefix={arXiv},
+  primaryClass={cs.GR},
+  url={https://arxiv.org/abs/2512.00000}, 
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  
+
+<footer class="footer">
+    <div class="content has-text-centered">
+        The website design has been adapted from the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> template.
+    </div>
+</footer>
+
+<!-- Zoom Overlay -->
+<div class="zoom-overlay" id="zoomOverlay">
+  <div class="zoom-container" id="zoomContainer">
+    <img src="" alt="Zoomed image" id="zoomedImage">
+  </div>
+  <span class="zoom-level" id="zoomLevel">100%</span>
+  <div class="zoom-controls">
+    <button class="zoom-btn" id="zoomOut">−</button>
+    <button class="zoom-btn" id="zoomReset">⟲</button>
+    <button class="zoom-btn" id="zoomIn">+</button>
+  </div>
+  <span class="zoom-hint">Scroll to zoom • Drag to pan • Click background or press Esc to close</span>
+</div>
+
+<!-- Click to Zoom Script -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const overlay = document.getElementById('zoomOverlay');
+    const container = document.getElementById('zoomContainer');
+    const zoomedImg = document.getElementById('zoomedImage');
+    const zoomLevelDisplay = document.getElementById('zoomLevel');
+    const zoomableImages = document.querySelectorAll('.zoomable');
+    
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX, startY;
+    const minScale = 1;
+    const maxScale = 5;
+    const scaleStep = 0.2;
+    
+    function updateTransform() {
+      zoomedImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      zoomLevelDisplay.textContent = Math.round(scale * 100) + '%';
+      container.classList.toggle('at-min-zoom', scale <= minScale);
+    }
+    
+    function resetZoom() {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    }
+    
+    function closeOverlay() {
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      setTimeout(resetZoom, 300);
+    }
+    
+    // Open overlay on image click
+    zoomableImages.forEach(function(img) {
+      img.addEventListener('click', function() {
+        zoomedImg.src = this.src;
+        resetZoom();
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+    
+    // Close on background click (not on image)
+    container.addEventListener('click', function(e) {
+      if (e.target === container && scale <= minScale) {
+        closeOverlay();
+      }
+    });
+    
+    // Scroll to zoom
+    container.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      const rect = zoomedImg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left - rect.width / 2;
+      const mouseY = e.clientY - rect.top - rect.height / 2;
+      
+      const oldScale = scale;
+      if (e.deltaY < 0) {
+        scale = Math.min(maxScale, scale + scaleStep);
+      } else {
+        scale = Math.max(minScale, scale - scaleStep);
+      }
+      
+      // Adjust position to zoom toward mouse pointer
+      if (scale !== oldScale) {
+        const scaleRatio = scale / oldScale;
+        translateX = translateX * scaleRatio - mouseX * (scaleRatio - 1);
+        translateY = translateY * scaleRatio - mouseY * (scaleRatio - 1);
+        
+        // Reset position when at minimum zoom
+        if (scale <= minScale) {
+          translateX = 0;
+          translateY = 0;
+        }
+      }
+      
+      updateTransform();
+    }, { passive: false });
+    
+    // Drag to pan
+    container.addEventListener('mousedown', function(e) {
+      if (scale > minScale && e.target === zoomedImg) {
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        container.classList.add('dragging');
+        e.preventDefault();
+      }
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+      if (isDragging) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
+      }
+    });
+    
+    document.addEventListener('mouseup', function() {
+      isDragging = false;
+      container.classList.remove('dragging');
+    });
+    
+    // Zoom buttons
+    document.getElementById('zoomIn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      scale = Math.min(maxScale, scale + scaleStep);
+      updateTransform();
+    });
+    
+    document.getElementById('zoomOut').addEventListener('click', function(e) {
+      e.stopPropagation();
+      scale = Math.max(minScale, scale - scaleStep);
+      if (scale <= minScale) {
+        translateX = 0;
+        translateY = 0;
+      }
+      updateTransform();
+    });
+    
+    document.getElementById('zoomReset').addEventListener('click', function(e) {
+      e.stopPropagation();
+      resetZoom();
+    });
+    
+    // Keyboard controls
+    document.addEventListener('keydown', function(e) {
+      if (!overlay.classList.contains('active')) return;
+      
+      if (e.key === 'Escape') {
+        closeOverlay();
+      } else if (e.key === '+' || e.key === '=') {
+        scale = Math.min(maxScale, scale + scaleStep);
+        updateTransform();
+      } else if (e.key === '-') {
+        scale = Math.max(minScale, scale - scaleStep);
+        if (scale <= minScale) {
+          translateX = 0;
+          translateY = 0;
+        }
+        updateTransform();
+      } else if (e.key === '0') {
+        resetZoom();
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

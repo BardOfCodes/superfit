@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind Play CDN with Forms Plugin -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {} }
+    };
+  </script>
+
+  <!-- Pico.css fallback (if you still want it) -->
+  <!-- <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css"> -->
+
+  <!-- ReGL runtime from CDN -->
+  
+    <script src="https://cdn.jsdelivr.net/npm/twgl.js@4.21.2/dist/4.x/twgl-full.min.js"></script>
+  
+  
+  
+  <style>
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .slider::-moz-range-thumb {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    /* Custom scrollbar styling for control panels */
+    .control-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .control-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    
+    .control-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    
+    .control-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    
+    /* Ensure smooth scrolling */
+    .control-scroll {
+      scroll-behavior: smooth;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- Main content -->
+  <main class="container mx-auto px-4 py-8">
+    
+
+<div class="w-full min-h-screen">
+  <!-- Multi-Buffer Shader Visualizer -->
+  <div class="w-full h-full bg-white">
+    <div class="w-full h-full space-y-6 p-4">
+      
+      <!-- Canvas Area -->
+      <div class="flex justify-center">
+        <div id="canvas-container" class="relative bg-black rounded-lg overflow-hidden shadow-lg" style="width: 512px; height: 512px;">
+          <canvas
+            id="glcanvas"
+            class="absolute inset-0 w-full h-full"
+          ></canvas>
+        </div>
+      </div>
+
+      <!-- Controls Area -->
+      <div class="w-full">
+        
+        <!-- Multi-Pass Specific Controls -->
+        
+        
+        <!-- Standard Controls (uniforms, mouse, resolution, etc.) -->
+        <!-- Controls Panel -->
+<div id="control-panel" class="space-y-4 ">
+  <div class="bg-gray-50 p-4 rounded-lg shadow-sm space-y-6 ">
+
+    
+    
+    <!-- Always Visible Buttons -->
+    <details open class="bg-gray-100 border border-gray-300 rounded-lg">
+      <summary class="px-3 py-2 font-medium text-gray-800 cursor-pointer hover:bg-gray-200">
+        Actions
+      </summary>
+      <div class="px-3 pb-3 space-y-4">
+        <!-- Reset Buttons -->
+        <div class="space-y-2 border-t pt-4">
+          <div class="flex gap-2 flex-wrap">
+            <button
+              id="reset-shader"
+              class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded font-medium transition-colors"
+            >
+              Reset to Defaults
+            </button>
+            <button
+              id="reset-shader-code"
+              class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded font-medium transition-colors"
+            >
+              Reset Shader Code
+            </button>
+            <button
+              id="save-render"
+              class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded font-medium transition-colors"
+            >
+              Save Render to PNG
+            </button>
+            
+          </div>
+        </div>
+        
+        
+        
+      </div>
+    </details>
+  </div>
+</div> 
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Include Multi-Buffer Script Component -->
+<!-- TWGL Multi-Buffer Shader Script -->
+<script type="module">
+  
+  
+  
+  
+  // Include common script functionality first
+  // Note: common_script.js.html.j2 sets up uniformValues and handles resolution/canvas sizing
+    // Original shader code for reset to defaults
+  const originalShaderCode = ``;
+
+  // Uniform values storage (for ALL uniforms used by both ReGL and TWGL)
+  const uniformValues = {
+    
+    
+    resolution: [512, 512],
+    
+    
+    
+    cameraAngleX: 0.7853981633974483,
+    
+    
+    
+    cameraDistance: 3.0,
+    
+    
+    
+    cameraOrigin: [0, -1.0, 0],
+    
+    
+    
+    cameraAngleY: 0.7853981633974483,
+    
+    
+    
+    backgroundAzimuth: -2.0,
+    
+    
+    
+    sunElevation: 0.5,
+    
+    
+    
+    backgroundElevation: 0.5,
+    
+    
+    
+    sunAzimuth: 0.0,
+    
+    
+    
+    time: 0.0,
+    
+    
+    
+    // Resolution control (managed by scale)
+    resolutionScale: 1.0,
+    
+  };
+
+  const canvas = document.getElementById('glcanvas');
+  const gl = canvas.getContext('webgl2');
+  if (!gl) throw new Error("WebGL2 not supported");
+
+  
+
+  // Function to resize canvas
+  function resizeCanvas() {
+    
+    // Resolution via scale: calculate backing buffer size based on scale
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    
+    // Backing-buffer size
+    const scale = uniformValues.resolutionScale;
+    const w = Math.max(1, Math.floor(W * scale));
+    const h = Math.max(1, Math.floor(H * scale));
+    
+    // Set the GL buffer to the scaled size
+    canvas.width = w;
+    canvas.height = h;
+    
+    // Update resolution uniform
+    uniformValues.resolution = [w, h];
+    
+    
+    // Update viewport (TWGL specific, but harmless for ReGL)
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  // Initial resize
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  
+  // Mouse controls for camera
+  let dragging = false, shiftPressed = false;
+  let last = { x: 0, y: 0 };
+
+  canvas.addEventListener('mousedown', e => {
+    dragging = true;
+    last = { x: e.clientX, y: e.clientY };
+  });
+  
+  window.addEventListener('mouseup', () => dragging = false);
+  window.addEventListener('keydown', e => { if (e.key === 'Shift') shiftPressed = true; });
+  window.addEventListener('keyup', e => { if (e.key === 'Shift') shiftPressed = false; });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.98 : 1.02;
+    uniformValues.cameraDistance = Math.min(10, Math.max(0.1, uniformValues.cameraDistance * delta));
+  }, { passive: false });
+
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = last.x - e.clientX;
+    const dy = last.y - e.clientY;
+
+    if (shiftPressed) {
+      // Pan: adjust cameraOrigin in world space
+      const { cameraAngleX, cameraAngleY, cameraDistance } = uniformValues;
+      
+      // Get current cameraOrigin
+      let cameraOrigin = uniformValues.cameraOrigin || [0, 0, 0];
+      
+      // Compute forward/right vectors
+      const forward = [
+        -Math.sin(cameraAngleY) * Math.cos(cameraAngleX),
+         Math.sin(cameraAngleX),
+        -Math.cos(cameraAngleY) * Math.cos(cameraAngleX),
+      ];
+      const worldUp = [0, 1, 0];
+      const right = [
+        forward[1] * worldUp[2] - forward[2] * worldUp[1],
+        forward[2] * worldUp[0] - forward[0] * worldUp[2],
+        forward[0] * worldUp[1] - forward[1] * worldUp[0],
+      ];
+      const len = Math.hypot(...right);
+      const normR = right.map(v => v / len);
+      const scale = 0.005 * cameraDistance;
+      
+      const newOrigin = [
+        cameraOrigin[0] + dx * scale * normR[0],
+        cameraOrigin[1] - dy * scale,
+        cameraOrigin[2] + dx * scale * normR[2],
+      ];
+      
+      // Update cameraOrigin
+      uniformValues.cameraOrigin = newOrigin;
+      
+    } else {
+      // Orbit: adjust camera angles
+      uniformValues.cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2,
+        uniformValues.cameraAngleX + dy * 0.01
+      ));
+      uniformValues.cameraAngleY += dx * 0.01;
+    }
+
+    last = { x: e.clientX, y: e.clientY };
+  });
+  
+
+   
+  
+  
+  
+  
+  
+  // Multi-buffer specific data
+  const passes = [{"index": 0, "input_FBOs": [], "output_FBO": "distance_travelled", "raw_uniforms": {"cameraAngleX": {"init_value": 0.7853981633974483, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "cameraAngleY": {"init_value": 0.7853981633974483, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "cameraDistance": {"init_value": 3.0, "max": [10.0], "min": [0.0], "type": "float"}, "cameraOrigin": {"init_value": [0, -1.0, 0], "max": [10, 10, 10], "min": [-10, -10, -10], "type": "vec3"}, "resolution": {"init_value": [512, 512], "max": [10000, 10000], "min": [1, 1], "type": "vec2"}}, "shader_code": "#version 300 es\n#ifdef GL_ES\nprecision highp float;\nprecision highp sampler2D;\nprecision highp sampler3D;\n#endif\nout vec4 fragColor;  // Define the output color variable (only .r will be stored in R32F FBO)\n\n\n\n// Constants\nconst float _SCENE_RADIUS = 100.0;\nconst vec3 _SCENE_BOX_SIZE = vec3(10.0, 5.0, 10.0);\nconst int _RAYCAST_MAX_STEPS = 200;\nconst float _CONSERVATIVE_STEP_DIST = 1.0;\nconst float _RAYCAST_CONSERVATIVE_STEPPING_RATE = 0.99;\nconst int _AA = 1;\nconst bool _ADD_FLOOR_PLANE = false;\nconst float _FOCAL_LENGTH = 2.5;\nconst int _SHADOW_MAX_STEPS = 64;\nconst int _ZERO = 0;\nconst vec3 _SCENE_BOX_CENTER = vec3(0.0, 0.5, 0.0);\n\n// Uniforms\nuniform vec2 resolution;\nuniform float cameraAngleX;\nuniform float cameraDistance;\nuniform vec3 cameraOrigin;\nuniform float cameraAngleY;\n\n// Module: Translate3D\nvec3 Translate3D( vec3 p, vec3 translation )\n{\n    return p - translation;\n}\n\n// Module: AxisAngleRotate3D\nvec3 AxisAngleRotate3D( vec3 p, vec3 axis_angle )\n{\n    float theta = length(axis_angle);\n    vec3 axis = normalize(axis_angle);\n    mat3 K = mat3(0.0, -axis.z, axis.y, axis.z, 0.0, -axis.x, -axis.y, axis.x, 0.0);\n    float s = sin(theta);\n    float c = cos(theta);\n    mat3 R = mat3(1.0) + s * K + (1.0 - c) * (K * K);\n    return p * R;  // row vector multiplied from left\n}\n\n// Module: GeomOnlySmoothUnion\n\nvec2 GeomOnlySmoothUnion( vec2 res1, vec2 res2, float k )\n{\n    vec2 out_res;\n    if (res1.x \u003c res2.x) {\n        out_res = res1;\n    }else{\n        out_res = res2;\n    }\n\n    float h = clamp( 0.5 + 0.5*(res2.x - res1.x)/k, 0.0, 1.0 );\n    float new_x = mix( res2.x, res1.x, h ) - k*h*(1.0-h);\n    out_res.x = new_x;\n    return out_res;\n}\n\n\n// Module: setCamera_v1\nmat3 setCamera( in vec3 ro, in vec3 ta, float cr )\n{\n\tvec3 cw = normalize(ta-ro);\n\tvec3 cp = vec3(sin(cr), cos(cr),0.0);\n\tvec3 cu = normalize( cross(cw,cp) );\n\tvec3 cv =          ( cross(cu,cw) );\n    return mat3( cu, cv, cw );\n}\n\n// Module: NeoBaseV1\nfloat HalfRoundedRectangle2D( in vec2 p, in vec2 b, in float r )\n{\n    vec2 size = b / 2.0;\n    vec2 q = abs(p) - size +r;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;\n}\nfloat HalfRoundedRectangle2D( in vec2 p, in vec2 b, in vec4 r )\n{\n    vec2 size = b / 2.0;\n    r.xy = (p.x\u003e0.0)?r.xy : r.zw;\n    r.x  = (p.y\u003e0.0)?r.x  : r.y;\n    vec2 q = abs(p) - size + r.x;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;\n}\nfloat RoundedRectangle2D( in vec2 p, in vec2 size, in float r )\n{\n    vec2 q = abs(p) - size +r;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;\n}\nfloat RoundedRectangle2D( in vec2 p, in vec2 size, in vec4 r )\n{\n    r.xy = (p.x\u003e0.0)?r.xy : r.zw;\n    r.x  = (p.y\u003e0.0)?r.x  : r.y;\n    vec2 q = abs(p) - size + r.x;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;\n}\n\n// Module: NeoTaperedOnion\n/* 2d determinant (aka cross2d) */\nfloat det( in vec2 a, in vec2 b ) { return a.x*b.y - a.y*b.x; }\n/* Modified from iq\u0027s: https://www.shadertoy.com/view/3tdSDj\n   Returns signed distance to segment and also the side (left/right = neg/pos) */\nvec2 sdSegmentWithSign( in vec2 p, in vec2 a, in vec2 b )\n{\n\tvec2 pa = p - a;\n\tvec2 ba = b - a;\n\tfloat h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );\n\treturn vec2(length( pa - ba*h ), det(pa, ba));\n}\n/* Signed distance to non-intersecting, convex quad. */\nfloat sdQuad(in vec2 pos, in vec2 p0, in vec2 p1, in vec2 p2, in vec2 p3)\n{\n    vec2 sd0 = sdSegmentWithSign(pos, p0, p1);\n    vec2 sd1 = sdSegmentWithSign(pos, p1, p2);\n    vec2 sd2 = sdSegmentWithSign(pos, p2, p3);\n    vec2 sd3 = sdSegmentWithSign(pos, p3, p0);\n    float sd = min(sd0.x, min(sd1.x, min(sd2.x, sd3.x)));\n    /* Point tests to the left of all segments. */\n    /* Can probably do something more clever here :) */\n    if (sd0.y \u003c 0.0f \u0026\u0026 sd1.y \u003c 0.0f \u0026\u0026 sd2.y \u003c 0.0f \u0026\u0026 sd3.y \u003c 0.0f)\n      sd = -sd;\n    return sd;\n}\nfloat cross2D(vec2 a, vec2 b) { return a.x*b.y - a.y*b.x; }\nfloat sdTaperTrapezoidOnionExact(vec2 p, float inner, float h, float x3, float onion_ratio)\n{\n    float xL = -inner * (1.0 - onion_ratio);\n    float xTL = -inner + (x3 + inner) * onion_ratio;\n    float yB = -h, yT =  h;\n    vec2  Lb = vec2(xL, yB), Lt = vec2(xTL, yT);\n    vec2  Rb = vec2(0.0, yB), Rt = vec2(x3,  yT);\n    vec2  eS = Rt - Rb;                     // slanted edge vector = (x3, 2h)\n    vec2  eS_L = Lt - Lb;                     // slanted edge vector = (x3, 2h)\n    float inv_e2 = 1.0 / dot(eS, eS);       // precompute once\n    float inv_e2_L = 1.0 / dot(eS_L, eS_L);\n    vec2  pa_L        = p - Lb;\n    float t_L         = clamp(dot(pa_L, eS_L) * inv_e2_L, 0.0, 1.0);\n    vec2  q_slant_L   = Lb + eS_L * t_L;\n    float d2_slant_L  = dot(p - q_slant_L, p - q_slant_L);\n    float x_cl_bot  = clamp(p.x, xL, 0.0);\n    vec2  q_bot     = vec2(x_cl_bot, yB);\n    float d2_bottom = dot(p - q_bot, p - q_bot);\n    float x_min_top = xTL;\n    float x_max_top = x3;\n    float x_cl_top  = clamp(p.x, x_min_top, x_max_top);\n    vec2  q_top     = vec2(x_cl_top, yT);\n    float d2_top    = dot(p - q_top, p - q_top);\n    vec2  pa        = p - Rb;\n    float t         = clamp(dot(pa, eS) * inv_e2, 0.0, 1.0);\n    vec2  q_slant   = Rb + eS * t;\n    float d2_slant  = dot(p - q_slant, p - q_slant);\n    float d2 = min(min(d2_slant_L, d2_bottom), min(d2_top, d2_slant));\n    float cL_L = eS_L.y*(p.x - Lb.x) - eS_L.x*(p.y - Lb.y); // det(p-Lb, eS_L)\n    cL_L = - cL_L;\n    float cB = yB - p.y;                 // bottom\n    float cT = p.y - yT;                 // top\n    float cS = eS.y*(p.x - Rb.x) - eS.x*(p.y - Rb.y); // det(p-Rb, eS)\n    bool inside = max(max(cL_L, cB), max(cT, cS)) \u003c= 0.0;\n    float d = sqrt(d2);\n    return inside ? -d : d;\n}\nfloat NeoTaperedOnion(vec3 p, vec3 size, float roundness, float dilate_3d, float scale, float onion_ratio)\n{\n    vec2 uv = p.xy;\n    float min_size = min(size.x, size.y)  * 0.5;\n    float r = roundness * min_size;\n    float sdf2d  = HalfRoundedRectangle2D(uv, size.xy, r);\n    vec2 pos_2d = vec2(sdf2d, p.z);\n    float half_height = 0.5 * size.z;              // y extent\n    float x3     = -(1.0 - scale) * min_size;\n    float sd = sdTaperTrapezoidOnionExact(pos_2d, min_size, half_height, x3, onion_ratio);\n    return sd - dilate_3d;\n}\n\n// Module: NTCO\n#define PI 3.14159265359\nvec2 rot90(vec2 v){ return vec2(-v.y, v.x); }\nvec2 mapArcBulge(vec2 p, float z, float bulge)\n{\n    float eps = 1e-5;\n    float half_z = 0.5 * z;\n    float theta_top = max(bulge * (PI * 0.5), eps);\n    float center_pos = half_z / tan(theta_top);\n    vec2  center = vec2(center_pos, 0.0);\n    float radius = sqrt(center_pos * center_pos + half_z * half_z);\n    float point_angle = atan(p.y, center_pos - p.x);\n    float new_y = clamp(point_angle / theta_top, -1.0, 1.0) * half_z;\n    float new_x = length(p - center) - radius;\n    vec2  inside_point = vec2(new_x, new_y);\n    float s = sin(theta_top), c = cos(theta_top);\n    vec2 t_top = normalize(vec2(s,  c));\n    vec2 n_top = vec2(-t_top.y, t_top.x);\n    vec2 end_top = vec2(0.0,  half_z);\n    float along_top = dot(p - end_top, t_top);\n    float perp_top  = dot(p - end_top, n_top);\n    vec2 above_point = vec2(perp_top, half_z + along_top);\n    vec2 t_bot = normalize(vec2(-s,  c));\n    vec2 n_bot = vec2(-t_bot.y, t_bot.x);\n    vec2 end_bot = vec2(0.0, -half_z);\n    float along_bot = dot(p - end_bot, t_bot);\n    float perp_bot  = dot(p - end_bot, n_bot);\n    vec2 below_point = vec2(perp_bot, -half_z + along_bot);\n    float mask_above = step(theta_top, point_angle);     // angle \u003e  +theta\n    float mask_below = step(point_angle, -theta_top);    // angle \u003c  -theta\n    vec2 new_point = mix(inside_point, above_point, mask_above);\n    new_point = mix(new_point, below_point, mask_below);\n    return new_point;\n}\nfloat NTCO(vec3 p, vec3 size, float roundness, float dilate_3d, float scale, float bulge_ratio, float onion_ratio)\n{   \n    vec3 new_p = p;\n    float bulge = bulge_ratio;\n    if (bulge \u003e 0.0)\n    {\n        vec2 new_xz = mapArcBulge(p.xz, size.z, bulge);\n        new_p = vec3(new_xz.x, p.y, new_xz.y);\n    }\n    float sd = NeoTaperedOnion(new_p, size, roundness, dilate_3d, scale, onion_ratio);\n    return sd;\n}\n\n// Module: SCENE_EXPRESSION\n\nvec2 SCENE_EXPRESSION(vec3 pos_0) {\n    vec3 pos_1 = Translate3D(pos_0, vec3(-0.120878875255585, 0.76565021276474, -0.0521987080574036));\nvec3 pos_2 = AxisAngleRotate3D(pos_1, vec3(-0.00806342251598835, -0.0612985156476498, 0.0352451168000698));\nfloat sdf_0 = NTCO(pos_2, vec3(0.191819787025452, 0.125402212142944, 0.41054105758667),0.651978015899658,0.0666450858116150,0.0521337389945984,0.00179722905158997,0.0127745866775513);\nvec2 prim_0 = vec2(sdf_0, 0);\nvec2 res_1 = prim_0;\nvec3 pos_3 = Translate3D(pos_0, vec3(-0.338462799787521, -0.591989517211914, 0.507381439208984));\nvec3 pos_4 = AxisAngleRotate3D(pos_3, vec3(0.568835973739624, -1.15968561172485, 2.67578554153442));\nfloat sdf_2 = NTCO(pos_4, vec3(0.0329222679138184, 0.0284442901611328, 0.288369357585907),0.341081082820892,0.0674331188201904,0.932752907276154,0.0983741581439972,0.0419048964977264);\nvec2 prim_1 = vec2(sdf_2, 1);\nvec2 res_3 = prim_1;\nvec2 sdf_4 = GeomOnlySmoothUnion(res_1, res_3, 0.000445425510406494);\nvec3 pos_5 = Translate3D(pos_0, vec3(0.257373958826065, -0.60994291305542, -0.497174948453903));\nvec3 pos_6 = AxisAngleRotate3D(pos_5, vec3(-1.35712289810181, -1.16561377048492, -0.415162324905396));\nfloat sdf_5 = NTCO(pos_6, vec3(0.0258159637451172, 0.0309050679206848, 0.266447126865387),0.152544766664505,0.0666631460189819,1.20254969596863,0.00315159559249878,0.0158120691776276);\nvec2 prim_2 = vec2(sdf_5, 2);\nvec2 res_6 = prim_2;\nvec2 sdf_7 = GeomOnlySmoothUnion(sdf_4, res_6, 0.649808764457703);\nvec3 pos_7 = Translate3D(pos_0, vec3(-0.0536617822945118, 0.292375415563583, 0.0209126826375723));\nvec3 pos_8 = AxisAngleRotate3D(pos_7, vec3(0.163891077041626, -3.41422820091248, -0.184963718056679));\nfloat sdf_8 = NTCO(pos_8, vec3(0.221626937389374, 0.304502189159393, 0.0869770646095276),0.857511758804321,0.00167709589004517,1.14681565761566,0.00680193305015564,0.971097230911255);\nvec2 prim_3 = vec2(sdf_8, 3);\nvec2 res_9 = prim_3;\nvec2 sdf_10 = GeomOnlySmoothUnion(sdf_7, res_9, 0.182949304580688);\nvec3 pos_9 = Translate3D(pos_0, vec3(-0.161240950226784, 0.370317667722702, 0.422897726297379));\nvec3 pos_10 = AxisAngleRotate3D(pos_9, vec3(2.04803156852722, -0.747976422309875, 1.04750823974609));\nfloat sdf_11 = NTCO(pos_10, vec3(0.0933377742767334, 0.101584613323212, 0.374485790729523),0.983223438262939,0.0261141657829285,0.336135625839233,0.000953614711761475,0.0222528874874115);\nvec2 prim_4 = vec2(sdf_11, 4);\nvec2 res_12 = prim_4;\nvec2 sdf_13 = GeomOnlySmoothUnion(sdf_10, res_12, 0.111843466758728);\nvec3 pos_11 = Translate3D(pos_0, vec3(0.179953515529633, 0.087932176887989, -0.3149054646492));\nvec3 pos_12 = AxisAngleRotate3D(pos_11, vec3(-0.0731199532747269, -0.87346225976944, -3.31648063659668));\nfloat sdf_14 = NTCO(pos_12, vec3(0.0980144739151001, 0.0998581051826477, 0.191446959972382),0.948562502861023,0.0337374508380890,0.329249441623688,0.000571787357330322,0.0220962762832642);\nvec2 prim_5 = vec2(sdf_14, 5);\nvec2 res_15 = prim_5;\nvec2 sdf_16 = GeomOnlySmoothUnion(sdf_13, res_15, 0.211779713630676);\nvec3 pos_13 = Translate3D(pos_0, vec3(-0.0335851684212685, -0.360042363405228, -0.311897069215775));\nvec3 pos_14 = AxisAngleRotate3D(pos_13, vec3(-0.465541183948517, 0.860797345638275, 3.40581059455872));\nfloat sdf_17 = NTCO(pos_14, vec3(0.10039210319519, 0.0933113098144531, 0.425034701824188),0.461548745632172,0.00296741724014282,1.30808544158936,0.000268518924713135,0.00311210751533508);\nvec2 prim_6 = vec2(sdf_17, 6);\nvec2 res_18 = prim_6;\nvec2 sdf_19 = GeomOnlySmoothUnion(sdf_16, res_18, 0.152742147445679);\nvec3 pos_15 = Translate3D(pos_0, vec3(-0.347585409879684, -0.314388781785965, 0.247912973165512));\nvec3 pos_16 = AxisAngleRotate3D(pos_15, vec3(-0.483308732509613, -2.07416892051697, -0.89652156829834));\nfloat sdf_20 = NTCO(pos_16, vec3(0.112275779247284, 0.100060999393463, 0.419591665267944),0.555600583553314,0.00310796499252319,1.17974972724915,0.000193923711776733,0.00207352638244629);\nvec2 prim_7 = vec2(sdf_20, 7);\nvec2 res_21 = prim_7;\nvec2 sdf_22 = GeomOnlySmoothUnion(sdf_19, res_21, 0.111895620822906);\nvec3 pos_17 = Translate3D(pos_0, vec3(0.00168937398120761, -0.0811331644654274, 0.0493502803146839));\nvec3 pos_18 = AxisAngleRotate3D(pos_17, vec3(-1.1318975687027, -0.751734375953674, -0.194897159934044));\nfloat sdf_23 = NTCO(pos_18, vec3(0.127496242523193, 0.145165026187897, 0.130483031272888),0.00121387839317322,0.00753986835479736,0.704921245574951,0.190347105264664,0.0147600769996643);\nvec2 prim_8 = vec2(sdf_23, 8);\nvec2 res_24 = prim_8;\nvec2 sdf_25 = GeomOnlySmoothUnion(sdf_22, res_24, 0.250403523445129);\nvec3 pos_19 = Translate3D(pos_0, vec3(0.337355464696884, -0.791612386703491, -0.596174716949463));\nvec3 pos_20 = AxisAngleRotate3D(pos_19, vec3(-1.14258480072021, -0.832169532775879, -3.05039072036743));\nfloat sdf_26 = NTCO(pos_20, vec3(0.0893685817718506, 0.0235567092895508, 0.243293523788452),0.998803973197937,0.0257478058338165,0.424341380596161,0.275148510932922,0.0185890793800354);\nvec2 prim_9 = vec2(sdf_26, 9);\nvec2 res_27 = prim_9;\nvec2 sdf_28 = GeomOnlySmoothUnion(sdf_25, res_27, 0.0315696001052856);\nvec3 pos_21 = Translate3D(pos_0, vec3(-0.441657871007919, -0.854647815227509, 0.601324677467346));\nvec3 pos_22 = AxisAngleRotate3D(pos_21, vec3(0.118187107145786, -1.47828149795532, -0.162107139825821));\nfloat sdf_29 = NTCO(pos_22, vec3(0.134398937225342, 0.0530532002449036, 0.0863252282142639),0.713699221611023,0.0113514661788940,1.99012899398804,0.000497639179229736,0.00210499763488770);\nvec2 prim_10 = vec2(sdf_29, 10);\nvec2 res_30 = prim_10;\nvec2 sdf_31 = GeomOnlySmoothUnion(sdf_28, res_30, 0.0734688639640808);\nvec3 pos_23 = Translate3D(pos_0, vec3(-0.0199314560741186, 0.279852628707886, 0.138062968850136));\nvec3 pos_24 = AxisAngleRotate3D(pos_23, vec3(1.42023110389709, -1.96826255321503, 2.0379626750946));\nfloat sdf_32 = NTCO(pos_24, vec3(0.152181267738342, 0.0360068082809448, 0.104187309741974),0.0138863325119019,0.00881731510162354,0.537509620189667,0.0816201269626617,0.181551247835159);\nvec2 prim_11 = vec2(sdf_32, 11);\nvec2 res_33 = prim_11;\nvec2 sdf_34 = GeomOnlySmoothUnion(sdf_31, res_33, 0.131235599517822);\nvec3 pos_25 = Translate3D(pos_0, vec3(-0.223513916134834, 0.321699291467667, 0.458510994911194));\nvec3 pos_26 = AxisAngleRotate3D(pos_25, vec3(-1.51792800426483, -0.494909107685089, 2.68079161643982));\nfloat sdf_35 = NTCO(pos_26, vec3(0.0625002384185791, 0.0375686287879944, 0.387804865837097),0.978555679321289,0.0100160539150238,0.267482519149780,0.0274133384227753,0.235574096441269);\nvec2 prim_12 = vec2(sdf_35, 12);\nvec2 res_36 = prim_12;\nvec2 sdf_37 = GeomOnlySmoothUnion(sdf_34, res_36, 0.0246691107749939);\nvec3 pos_27 = Translate3D(pos_0, vec3(0.469049036502838, -0.82869029045105, -0.502618074417114));\nvec3 pos_28 = AxisAngleRotate3D(pos_27, vec3(0.31202095746994, -2.45511770248413, 0.24805548787117));\nfloat sdf_38 = NTCO(pos_28, vec3(0.0396572351455688, 0.104324281215668, 0.0600677728652954),0.977862834930420,0.00715735554695129,1.87817764282227,0.920330047607422,0.0964769423007965);\nvec2 prim_13 = vec2(sdf_38, 13);\nvec2 res_39 = prim_13;\nvec2 sdf_40 = GeomOnlySmoothUnion(sdf_37, res_39, 0.0818779468536377);\nvec3 pos_29 = Translate3D(pos_0, vec3(0.126152038574219, -0.100927986204624, -0.432967483997345));\nvec3 pos_30 = AxisAngleRotate3D(pos_29, vec3(-0.519145786762238, 0.237612962722778, 0.171607434749603));\nfloat sdf_41 = NTCO(pos_30, vec3(0.1266108751297, 0.0295165181159973, 0.0210981369018555),0.237369835376740,0.0105189085006714,1.94607281684875,0.319304943084717,0.950172603130341);\nvec2 prim_14 = vec2(sdf_41, 14);\nvec2 res_42 = prim_14;\nvec2 sdf_43 = GeomOnlySmoothUnion(sdf_40, res_42, 0.0702427625656128);\nvec3 pos_31 = Translate3D(pos_0, vec3(0.0709396004676819, -0.126501530408859, -0.481445282697678));\nvec3 pos_32 = AxisAngleRotate3D(pos_31, vec3(2.02107167243958, -1.18782782554626, 2.18553471565247));\nfloat sdf_44 = NTCO(pos_32, vec3(0.0475853681564331, 0.0742170214653015, 0.097877025604248),0.421373128890991,0.0169244110584259,1.27863144874573,0.219009369611740,0.931966066360474);\nvec2 prim_15 = vec2(sdf_44, 15);\nvec2 res_45 = prim_15;\nvec2 sdf_46 = GeomOnlySmoothUnion(sdf_43, res_45, 0.00100660324096680);\nvec3 pos_33 = Translate3D(pos_0, vec3(-0.260716438293457, -0.789645552635193, 0.620776832103729));\nvec3 pos_34 = AxisAngleRotate3D(pos_33, vec3(3.27755856513977, 0.237027257680893, 0.0147474221885204));\nfloat sdf_47 = NTCO(pos_34, vec3(0.221447587013245, 0.0465361475944519, 0.154243290424347),0.910593509674072,0.0131728649139404,0.278973519802094,0.115097910165787,0.00332349538803101);\nvec2 prim_16 = vec2(sdf_47, 16);\nvec2 res_48 = prim_16;\nvec2 sdf_49 = GeomOnlySmoothUnion(sdf_46, res_48, 0.0596644878387451);\nvec3 pos_35 = Translate3D(pos_0, vec3(-0.0625895112752914, 0.4578016102314, 0.198023915290833));\nvec3 pos_36 = AxisAngleRotate3D(pos_35, vec3(-0.190428540110588, -0.331076174974442, -0.157829284667969));\nfloat sdf_50 = NTCO(pos_36, vec3(0.0371819734573364, 0.035728931427002, 0.306212961673737),0.986981749534607,0.0187646746635437,1.95638751983643,0.00104716420173645,0.317587375640869);\nvec2 prim_17 = vec2(sdf_50, 17);\nvec2 res_51 = prim_17;\nvec2 sdf_52 = GeomOnlySmoothUnion(sdf_49, res_51, 0.00109964609146118);\nvec3 pos_37 = Translate3D(pos_0, vec3(0.07835803180933, 0.300254136323929, -0.178412526845932));\nvec3 pos_38 = AxisAngleRotate3D(pos_37, vec3(-0.872599184513092, 1.66812562942505, 1.60093104839325));\nfloat sdf_53 = NTCO(pos_38, vec3(0.0706112384796143, 0.0730807185173035, 0.335524559020996),0.913957118988037,0.0115907490253448,0.753237247467041,0.00511398911476135,0.135689318180084);\nvec2 prim_18 = vec2(sdf_53, 18);\nvec2 res_54 = prim_18;\nvec2 sdf_55 = GeomOnlySmoothUnion(sdf_52, res_54, 0.0863680839538574);\nvec3 pos_39 = Translate3D(pos_0, vec3(-0.249398127198219, 0.643955230712891, -0.137250766158104));\nvec3 pos_40 = AxisAngleRotate3D(pos_39, vec3(-1.20372343063354, -1.20959770679474, -1.24171996116638));\nfloat sdf_56 = NTCO(pos_40, vec3(0.0625002980232239, 0.0720416307449341, 0.134536921977997),0.482819378376007,0.00894242525100708,1.96908962726593,0.000326544046401978,0.0127212405204773);\nvec2 prim_19 = vec2(sdf_56, 19);\nvec2 res_57 = prim_19;\nvec2 sdf_58 = GeomOnlySmoothUnion(sdf_55, res_57, 0.0589318871498108);\nvec3 pos_41 = Translate3D(pos_0, vec3(-0.0432436466217041, 0.43498882651329, -0.0313991755247116));\nvec3 pos_42 = AxisAngleRotate3D(pos_41, vec3(-0.800001680850983, -0.810909569263458, -0.0828739032149315));\nfloat sdf_59 = NTCO(pos_42, vec3(0.129867613315582, 0.0718494057655334, 0.166787981987),0.990622699260712,0.0100511312484741,0.210219025611877,0.00787281990051270,0.336968094110489);\nvec2 prim_20 = vec2(sdf_59, 20);\nvec2 res_60 = prim_20;\nvec2 sdf_61 = GeomOnlySmoothUnion(sdf_58, res_60, 0.0939320325851440);\nvec3 pos_43 = Translate3D(pos_0, vec3(-0.127413332462311, 0.315158188343048, -0.0937498211860657));\nvec3 pos_44 = AxisAngleRotate3D(pos_43, vec3(1.54724645614624, 0.41124352812767, 2.97554802894592));\nfloat sdf_62 = NTCO(pos_44, vec3(0.111064910888672, 0.208487629890442, 0.0309364199638367),0.924682259559631,0.00699579715728760,1.83923983573914,0.0293080508708954,0.0961321890354156);\nvec2 prim_21 = vec2(sdf_62, 21);\nvec2 res_63 = prim_21;\nvec2 sdf_64 = GeomOnlySmoothUnion(sdf_61, res_63, 0.0198173522949219);\nvec3 pos_45 = Translate3D(pos_0, vec3(-0.169664442539215, -0.859605431556702, 0.640037000179291));\nvec3 pos_46 = AxisAngleRotate3D(pos_45, vec3(-1.59933531284332, 0.330228835344315, 0.0230561885982752));\nfloat sdf_65 = NTCO(pos_46, vec3(0.0362364053726196, 0.13460773229599, 0.0859982967376709),0.0173180699348450,0.00323075056076050,1.99095201492310,0.00199061632156372,0.000756859779357910);\nvec2 prim_22 = vec2(sdf_65, 22);\nvec2 res_66 = prim_22;\nvec2 sdf_67 = GeomOnlySmoothUnion(sdf_64, res_66, 0.0602976679801941);\nvec3 pos_47 = Translate3D(pos_0, vec3(-0.133310407400131, 0.580661773681641, -0.225377693772316));\nvec3 pos_48 = AxisAngleRotate3D(pos_47, vec3(1.33807587623596, -1.12833833694458, 1.27704203128815));\nfloat sdf_68 = NTCO(pos_48, vec3(0.11542147397995, 0.0152806639671326, 0.145498394966125),0.367410719394684,0.0304042696952820,1.10070657730103,0.395455777645111,0.0436198413372040);\nvec2 prim_23 = vec2(sdf_68, 23);\nvec2 res_69 = prim_23;\nvec2 sdf_70 = GeomOnlySmoothUnion(sdf_67, res_69, 0.0698143243789673);\nvec3 pos_49 = Translate3D(pos_0, vec3(-0.0742054656147957, -0.0944922491908073, 0.0328744947910309));\nvec3 pos_50 = AxisAngleRotate3D(pos_49, vec3(1.52235889434814, 0.138858869671822, 0.59666907787323));\nfloat sdf_71 = NTCO(pos_50, vec3(0.17452472448349, 0.0178697109222412, 0.134290754795074),0.0239576697349548,0.0110337138175964,0.562038123607635,0.00139218568801880,0.236974537372589);\nvec2 prim_24 = vec2(sdf_71, 24);\nvec2 res_72 = prim_24;\nvec2 sdf_73 = GeomOnlySmoothUnion(sdf_70, res_72, 0.0259466767311096);\nvec3 pos_51 = Translate3D(pos_0, vec3(0.0350810363888741, 0.326810538768768, -0.0679446756839752));\nvec3 pos_52 = AxisAngleRotate3D(pos_51, vec3(-1.20106887817383, -0.526423692703247, -0.911091089248657));\nfloat sdf_74 = NTCO(pos_52, vec3(0.120552539825439, 0.0768553018569946, 0.256349325180054),0.00508689880371094,0.00445333123207092,0.130120575428009,0.000535130500793457,0.104034304618835);\nvec2 prim_25 = vec2(sdf_74, 25);\nvec2 res_75 = prim_25;\nvec2 sdf_76 = GeomOnlySmoothUnion(sdf_73, res_75, 0.0921374559402466);\nvec3 pos_53 = Translate3D(pos_0, vec3(-0.119075402617455, 0.641633689403534, 0.0576204396784306));\nvec3 pos_54 = AxisAngleRotate3D(pos_53, vec3(1.30819702148438, -1.23991894721985, 1.2814234495163));\nfloat sdf_77 = NTCO(pos_54, vec3(0.0232087969779968, 0.262997388839722, 0.155216157436371),0.725388586521149,0.0413256585597992,1.01625001430511,0.000230133533477783,0.0242499411106110);\nvec2 prim_26 = vec2(sdf_77, 26);\nvec2 res_78 = prim_26;\nvec2 sdf_79 = GeomOnlySmoothUnion(sdf_76, res_78, 0.0254583954811096);\nvec3 pos_55 = Translate3D(pos_0, vec3(-0.108938530087471, 0.24271933734417, 0.0124667240306735));\nvec3 pos_56 = AxisAngleRotate3D(pos_55, vec3(-0.092048205435276, -0.261366456747055, 0.0965513437986374));\nfloat sdf_80 = NTCO(pos_56, vec3(0.0248267650604248, 0.176454246044159, 0.0251068472862244),0.936906337738037,0.00124618411064148,1.85665309429169,0.115944385528564,0.973919749259949);\nvec2 prim_27 = vec2(sdf_80, 27);\nvec2 res_81 = prim_27;\nvec2 sdf_82 = GeomOnlySmoothUnion(sdf_79, res_81, 0.101242303848267);\nvec3 pos_57 = Translate3D(pos_0, vec3(-0.0278857741504908, 0.654678225517273, -0.130130991339684));\nvec3 pos_58 = AxisAngleRotate3D(pos_57, vec3(-0.420569717884064, 1.13283717632294, -3.07790732383728));\nfloat sdf_83 = NTCO(pos_58, vec3(0.0713923573493958, 0.064251184463501, 0.0508072376251221),0.00186973810195923,0.0123523175716400,1.86932587623596,0.0964489281177521,0.0545223653316498);\nvec2 prim_28 = vec2(sdf_83, 28);\nvec2 res_84 = prim_28;\nvec2 sdf_85 = GeomOnlySmoothUnion(sdf_82, res_84, 0.0622388124465942);\nvec3 pos_59 = Translate3D(pos_0, vec3(-0.354055225849152, 0.204348027706146, 0.482001423835754));\nvec3 pos_60 = AxisAngleRotate3D(pos_59, vec3(-1.77923429012299, 0.657918035984039, 0.827032208442688));\nfloat sdf_86 = NTCO(pos_60, vec3(0.0318080186843872, 0.0334332585334778, 0.177897870540619),0.898687005043030,0.0114223062992096,0.540278434753418,0.826611220836639,0.00965204834938049);\nvec2 prim_29 = vec2(sdf_86, 29);\nvec2 res_87 = prim_29;\nvec2 sdf_88 = GeomOnlySmoothUnion(sdf_85, res_87, 0.0345754027366638);\nvec3 pos_61 = Translate3D(pos_0, vec3(-0.106828860938549, -0.179681092500687, 0.16704823076725));\nvec3 pos_62 = AxisAngleRotate3D(pos_61, vec3(1.81564903259277, -0.710138440132141, 3.40938663482666));\nfloat sdf_89 = NTCO(pos_62, vec3(0.0858945846557617, 0.0510400533676147, 0.137654781341553),0.00103217363357544,0.00224667787551880,1.06596875190735,0.00670430064201355,0.790699124336243);\nvec2 prim_30 = vec2(sdf_89, 30);\nvec2 res_90 = prim_30;\nvec2 sdf_91 = GeomOnlySmoothUnion(sdf_88, res_90, 0.0704815387725830);\nvec3 pos_63 = Translate3D(pos_0, vec3(-0.00865702796727419, 0.186279475688934, -0.135769471526146));\nvec3 pos_64 = AxisAngleRotate3D(pos_63, vec3(0.561316609382629, -1.480344414711, 1.95648264884949));\nfloat sdf_92 = NTCO(pos_64, vec3(0.0654555559158325, 0.0422319173812866, 0.0789695978164673),0.971544146537781,0.00362965464591980,0.521221160888672,0.497554957866669,0.00674784183502197);\nvec2 prim_31 = vec2(sdf_92, 31);\nvec2 res_93 = prim_31;\nvec2 sdf_94 = GeomOnlySmoothUnion(sdf_91, res_93, 0.108354628086090);\nvec3 pos_65 = Translate3D(pos_0, vec3(-0.0240575987845659, 0.374195635318756, 0.0935513079166412));\nvec3 pos_66 = AxisAngleRotate3D(pos_65, vec3(0.939081847667694, -1.26734375953674, 2.81470680236816));\nfloat sdf_95 = NTCO(pos_66, vec3(0.162536859512329, 0.0244635939598083, 0.257856786251068),0.986858606338501,0.00769343972206116,1.36627268791199,0.00114253163337708,0.921058177947998);\nvec2 prim_32 = vec2(sdf_95, 32);\nvec2 res_96 = prim_32;\nvec2 sdf_97 = GeomOnlySmoothUnion(sdf_94, res_96, 0.0412419438362122);\nvec3 pos_67 = Translate3D(pos_0, vec3(-0.0367753021419048, -0.178111657500267, -0.101346962153912));\nvec3 pos_68 = AxisAngleRotate3D(pos_67, vec3(-0.713848352432251, 1.33566629886627, -2.55491065979004));\nfloat sdf_98 = NTCO(pos_68, vec3(0.0495731830596924, 0.0718769431114197, 0.0814600586891174),0.00164979696273804,0.00749096274375916,1.88002634048462,0.0393580794334412,0.00683552026748657);\nvec2 prim_33 = vec2(sdf_98, 33);\nvec2 res_99 = prim_33;\nvec2 sdf_100 = GeomOnlySmoothUnion(sdf_97, res_99, 0.0248941183090210);\nvec3 pos_69 = Translate3D(pos_0, vec3(-0.124717347323895, 0.532711029052734, 0.0344759859144688));\nvec3 pos_70 = AxisAngleRotate3D(pos_69, vec3(-0.695438504219055, 1.40881061553955, 0.794321477413177));\nfloat sdf_101 = NTCO(pos_70, vec3(0.0171880125999451, 0.0178458094596863, 0.220685184001923),0.981479525566101,0.0121766328811646,0.916714012622833,0.778045773506165,0.0119068920612335);\nvec2 prim_34 = vec2(sdf_101, 34);\nvec2 res_102 = prim_34;\nvec2 sdf_103 = GeomOnlySmoothUnion(sdf_100, res_102, 0.0265432596206665);\nvec3 pos_71 = Translate3D(pos_0, vec3(-0.292433977127075, 0.66326105594635, -0.181336760520935));\nvec3 pos_72 = AxisAngleRotate3D(pos_71, vec3(0.298888891935349, -0.120701052248478, -0.00814259704202414));\nfloat sdf_104 = NTCO(pos_72, vec3(0.0118585824966431, 0.0389291644096375, 0.28088241815567),0.958813309669495,0.00687813758850098,1.52759909629822,0.0267487466335297,0.00161096453666687);\nvec2 prim_35 = vec2(sdf_104, 35);\nvec2 res_105 = prim_35;\nvec2 sdf_106 = GeomOnlySmoothUnion(sdf_103, res_105, 0.0390350222587585);\nvec3 pos_73 = Translate3D(pos_0, vec3(-0.121966496109962, 0.352217882871628, 0.0715227648615837));\nvec3 pos_74 = AxisAngleRotate3D(pos_73, vec3(0.646709442138672, 2.65767407417297, 1.15112817287445));\nfloat sdf_107 = NTCO(pos_74, vec3(0.0280852317810059, 0.07954341173172, 0.197372555732727),0.988692879676819,0.0159506201744080,1.93574619293213,0.00105530023574829,0.0303120315074921);\nvec2 prim_36 = vec2(sdf_107, 36);\nvec2 res_108 = prim_36;\nvec2 sdf_109 = GeomOnlySmoothUnion(sdf_106, res_108, 0.0293962359428406);\nvec3 pos_75 = Translate3D(pos_0, vec3(-0.397809058427811, 0.14095664024353, 0.599635720252991));\nvec3 pos_76 = AxisAngleRotate3D(pos_75, vec3(1.04390919208527, -1.10659003257751, 3.99171948432922));\nfloat sdf_110 = NTCO(pos_76, vec3(0.0683805346488953, 0.11061555147171, 0.0149277448654175),0.101800054311752,0.0138248801231384,0.408172249794006,0.000832676887512207,0.854405164718628);\nvec2 prim_37 = vec2(sdf_110, 37);\nvec2 res_111 = prim_37;\nvec2 sdf_112 = GeomOnlySmoothUnion(sdf_109, res_111, 0.0683997273445129);\nvec3 pos_77 = Translate3D(pos_0, vec3(-0.111014038324356, -0.20064215362072, -0.108796536922455));\nvec3 pos_78 = AxisAngleRotate3D(pos_77, vec3(0.935622274875641, 0.204120755195618, 0.475549787282944));\nfloat sdf_113 = NTCO(pos_78, vec3(0.0114449858665466, 0.108161807060242, 0.141586720943451),0.0548917651176453,0.00526374578475952,0.872982263565063,0.119339704513550,0.00115141272544861);\nvec2 prim_38 = vec2(sdf_113, 38);\nvec2 res_114 = prim_38;\nvec2 sdf_115 = GeomOnlySmoothUnion(sdf_112, res_114, 0.0140663981437683);\nvec3 pos_79 = Translate3D(pos_0, vec3(0.00107952510006726, 0.17604698240757, 0.0406806208193302));\nvec3 pos_80 = AxisAngleRotate3D(pos_79, vec3(1.16185438632965, -1.34373235702515, -0.562975347042084));\nfloat sdf_116 = NTCO(pos_80, vec3(0.104648053646088, 0.164465606212616, 0.134714722633362),0.994412779808044,0.0120371878147125,0.107272803783417,0.138047218322754,0.184850633144379);\nvec2 prim_39 = vec2(sdf_116, 39);\nvec2 res_117 = prim_39;\nvec2 sdf_118 = GeomOnlySmoothUnion(sdf_115, res_117, 0.0214478969573975);\nvec3 pos_81 = Translate3D(pos_0, vec3(-0.329070031642914, 0.34260556101799, 0.510149300098419));\nvec3 pos_82 = AxisAngleRotate3D(pos_81, vec3(0.877054929733276, -2.36174964904785, 2.0834047794342));\nfloat sdf_119 = NTCO(pos_82, vec3(0.23237282037735, 0.0653204321861267, 0.0108824968338013),0.990820288658142,0.0263902544975281,1.97104966640472,0.200314819812775,0.953111886978149);\nvec2 prim_40 = vec2(sdf_119, 40);\nvec2 res_120 = prim_40;\nvec2 sdf_121 = GeomOnlySmoothUnion(sdf_118, res_120, 0.0213274359703064);\nvec3 pos_83 = Translate3D(pos_0, vec3(-0.478425890207291, 0.17503459751606, 0.579148530960083));\nvec3 pos_84 = AxisAngleRotate3D(pos_83, vec3(-1.80745506286621, -0.960803508758545, -0.561015903949738));\nfloat sdf_122 = NTCO(pos_84, vec3(0.0957059264183044, 0.0127999186515808, 0.0136455297470093),0.833275854587555,0.0127345621585846,1.36731398105621,0.00294283032417297,0.00854241847991943);\nvec2 prim_41 = vec2(sdf_122, 41);\nvec2 res_123 = prim_41;\nvec2 sdf_124 = GeomOnlySmoothUnion(sdf_121, res_123, 0.00121766328811646);\nvec3 pos_85 = Translate3D(pos_0, vec3(-0.374959707260132, 0.225186079740524, 0.576327562332153));\nvec3 pos_86 = AxisAngleRotate3D(pos_85, vec3(-0.549940764904022, 1.75642704963684, 0.420389175415039));\nfloat sdf_125 = NTCO(pos_86, vec3(0.0914620161056519, 0.013810396194458, 0.0999814867973328),0.953131914138794,0.0167505741119385,0.724075317382813,0.182968974113464,0.128347337245941);\nvec2 prim_42 = vec2(sdf_125, 42);\nvec2 res_126 = prim_42;\nvec2 sdf_127 = GeomOnlySmoothUnion(sdf_124, res_126, 0.0233094096183777);\nvec3 pos_87 = Translate3D(pos_0, vec3(0.389947086572647, -0.851387500762939, -0.617447555065155));\nvec3 pos_88 = AxisAngleRotate3D(pos_87, vec3(2.95907688140869, 0.052607748657465, -1.22091364860535));\nfloat sdf_128 = NTCO(pos_88, vec3(0.210998833179474, 0.10538238286972, 0.254456341266632),0.285954415798187,0.00596156716346741,0.597171127796173,0.322922617197037,0.971731066703796);\nvec2 prim_43 = vec2(sdf_128, 43);\nvec2 res_129 = prim_43;\nvec2 sdf_130 = GeomOnlySmoothUnion(sdf_127, res_129, 0.0562054514884949);\nvec3 pos_89 = Translate3D(pos_0, vec3(0.0319758988916874, 0.627357840538025, -0.237511917948723));\nvec3 pos_90 = AxisAngleRotate3D(pos_89, vec3(-2.05811309814453, 0.11890970915556, -1.95913469791412));\nfloat sdf_131 = NTCO(pos_90, vec3(0.223689615726471, 0.0611547231674194, 0.0134954452514648),0.0000605285167694092,0.00383988022804260,0.742573142051697,0.000747650861740112,0.00338459014892578);\nvec2 prim_44 = vec2(sdf_131, 44);\nvec2 res_132 = prim_44;\nvec2 sdf_133 = GeomOnlySmoothUnion(sdf_130, res_132, 0.0569391846656799);\nvec3 pos_91 = Translate3D(pos_0, vec3(-0.137896820902824, 0.808759391307831, -0.33758533000946));\nvec3 pos_92 = AxisAngleRotate3D(pos_91, vec3(1.42148923873901, -1.20343422889709, 1.31211495399475));\nfloat sdf_134 = NTCO(pos_92, vec3(0.0117069482803345, 0.0520766973495483, 0.283858835697174),0.0000605285167694092,0.00287079811096191,0.944839537143707,0.433514058589935,0.00274249911308289);\nvec2 prim_45 = vec2(sdf_134, 45);\nvec2 res_135 = prim_45;\nvec2 sdf_136 = GeomOnlySmoothUnion(sdf_133, res_135, 0.0406041741371155);\nvec3 pos_93 = Translate3D(pos_0, vec3(-0.108770303428173, 0.472332417964935, -0.0778885260224342));\nvec3 pos_94 = AxisAngleRotate3D(pos_93, vec3(0.524253964424133, -2.60024547576904, -1.71126794815063));\nfloat sdf_137 = NTCO(pos_94, vec3(0.0317291021347046, 0.0256758332252502, 0.231004595756531),0.878237545490265,0.0238679349422455,0.500765502452850,0.00704956054687500,0.0679752826690674);\nvec2 prim_46 = vec2(sdf_137, 46);\nvec2 res_138 = prim_46;\nvec2 sdf_139 = GeomOnlySmoothUnion(sdf_136, res_138, 0.00499182939529419);\nvec3 pos_95 = Translate3D(pos_0, vec3(-0.0353709310293198, 0.157343477010727, 0.135076388716698));\nvec3 pos_96 = AxisAngleRotate3D(pos_95, vec3(0.735409796237946, -0.309192448854446, 0.966831922531128));\nfloat sdf_140 = NTCO(pos_96, vec3(0.0241724252700806, 0.022632896900177, 0.211554825305939),0.963347792625427,0.00845095515251160,1.32401382923126,0.559843659400940,0.0259713828563690);\nvec2 prim_47 = vec2(sdf_140, 47);\nvec2 res_141 = prim_47;\nvec2 sdf_142 = GeomOnlySmoothUnion(sdf_139, res_141, 0.0140038132667542);\nvec3 pos_97 = Translate3D(pos_0, vec3(0.187157139182091, -0.0220437254756689, -0.504682302474976));\nvec3 pos_98 = AxisAngleRotate3D(pos_97, vec3(-0.289525866508484, -1.396559715271, 0.54473465681076));\nfloat sdf_143 = NTCO(pos_98, vec3(0.0430691838264465, 0.0121105909347534, 0.0936163067817688),0.947574257850647,0.00423315167427063,1.31409525871277,0.967304408550262,0.0159190595149994);\nvec2 prim_48 = vec2(sdf_143, 48);\nvec2 res_144 = prim_48;\nvec2 sdf_145 = GeomOnlySmoothUnion(sdf_142, res_144, 0.150415897369385);\nvec3 pos_99 = Translate3D(pos_0, vec3(0.0792446285486221, 0.112236268818378, -0.0795431956648827));\nvec3 pos_100 = AxisAngleRotate3D(pos_99, vec3(-0.468825846910477, 1.81934332847595, 2.16837430000305));\nfloat sdf_146 = NTCO(pos_100, vec3(0.0355694070458412, 0.0391238033771515, 0.0466464757919312),0.604730963706970,0.00999999977648258,1.09504461288452,0.00999999977648258,0.0250000003725290);\nvec2 prim_49 = vec2(sdf_146, 49);\nvec2 res_147 = prim_49;\nvec2 sdf_148 = GeomOnlySmoothUnion(sdf_145, res_147, 0.00999999977648258);\nreturn sdf_148;\n}\n\n// Module: raycast_sdf_trace\nvec2 raycast_sdf_trace(in vec3 ro, in vec3 rd) {\n    vec2 res = vec2(0.0, -1.0);\n    float b = dot(ro, ro) - _SCENE_RADIUS*_SCENE_RADIUS;\n    float c = dot(ro, rd);\n    float disc = c*c - b;\n    if (disc \u003c= 0.0) return res;                // no intersection with sphere\n    float s   = sqrt(disc);\n    float t0  = -c - s;\n    float t1  = -c + s;\n    if (t1 \u003c 0.0) return res;                   // both intersections behind camera\n    float tmin = max(1.0, t0);\n    float tmax = min(20.0, t1);\n    if (_ADD_FLOOR_PLANE) {\n        float tp = -ro.y / rd.y;\n        if (tp \u003e 0.0) {\n            tmax = tp;\n            res = vec2(tp, 1.0);\n        }\n    }\n    vec3 inv_rd = 1.0 / rd;  // hoist reciprocal\n    vec3 tA = ( _SCENE_BOX_CENTER - _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tB = ( _SCENE_BOX_CENTER + _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tMin3 = min(tA, tB);\n    vec3 tMax3 = max(tA, tB);\n    float tbmin = max( max(tMin3.x, tMin3.y), tMin3.z );\n    float tbmax = min( min(tMax3.x, tMax3.y), tMax3.z );\n    if (tbmin \u003c tbmax \u0026\u0026 tbmax \u003e 0.0 \u0026\u0026 tbmin \u003c tmax) {\n        tmin = max(tmin, tbmin);\n        tmax = min(tmax, tbmax);\n        float t = tmin;\n        for (int i = _ZERO; i \u003c _RAYCAST_MAX_STEPS \u0026\u0026 t \u003c tmax; i++) {\n            vec2 h = SCENE_EXPRESSION(ro + rd * t);\n            if (abs(h.x) \u003c 0.0001) {\n                res = vec2(t, h.y);\n                break;\n            }\n            t += h.x * _RAYCAST_CONSERVATIVE_STEPPING_RATE;\n        }\n    }\n    res.x *= _CONSERVATIVE_STEP_DIST;\n    return res;\n}\n\n// Module: main_sdf_trace\nvoid main_sdf_trace( out vec4 fragColor, in vec2 fragCoord )\n{\n    vec3 ta = vec3( 0.0, 1.0, -0.0 ) + cameraOrigin;\n    vec3 ro = ta + cameraDistance * vec3(\n        cos(cameraAngleX) * sin(cameraAngleY), // X component\n        sin(cameraAngleX),                     // Y component (elevation)\n        cos(cameraAngleX) * cos(cameraAngleY)  // Z component\n    );\n    mat3 ca = setCamera( ro, ta, 0.0 );\n    vec2 p = (2.0*(fragCoord)-resolution.xy)/resolution.xy;\n    vec3 rd = ca * normalize( vec3(p, _FOCAL_LENGTH) );\n    vec2 trace_result = raycast_sdf_trace(ro, rd);\n    fragColor = vec4(trace_result.x, trace_result.y, 0.0, 1.0);  // Only .r will be stored in R32F FBO\n}\n\n\nvoid main(void)\n{\n  \n  main_sdf_trace(fragColor, gl_FragCoord.xy);\n}", "textures": {}, "uniforms": [{"default": [512, 512], "label": "Resolution", "max": [10000.0, 10000.0], "min": [1.0, 1.0], "name": "resolution", "set_name": "Settings", "step": 9.999, "type": "vec2"}, {"default": 0.7853981633974483, "label": "Camera Angle X", "max": 3.141592653589793, "min": -3.141592653589793, "name": "cameraAngleX", "set_name": "Settings", "step": 0.006283185307179587, "type": "float"}, {"default": 3.0, "label": "Camera Distance", "max": 10.0, "min": 0.0, "name": "cameraDistance", "set_name": "Settings", "step": 0.01, "type": "float"}, {"default": [0, -1.0, 0], "label": "Camera Origin", "max": [10.0, 10.0, 10.0], "min": [-10.0, -10.0, -10.0], "name": "cameraOrigin", "set_name": "Settings", "step": 0.02, "type": "vec3"}, {"default": 0.7853981633974483, "label": "Camera Angle Y", "max": 3.141592653589793, "min": -3.141592653589793, "name": "cameraAngleY", "set_name": "Settings", "step": 0.006283185307179587, "type": "float"}]}, {"index": 1, "input_FBOs": ["distance_travelled"], "output_FBO": "intermediate_image", "raw_uniforms": {"backgroundAzimuth": {"init_value": -2.0, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "backgroundElevation": {"init_value": 0.5, "max": [0.7853981633974483], "min": [-0.7853981633974483], "type": "float"}, "cameraAngleX": {"init_value": 0.7853981633974483, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "cameraAngleY": {"init_value": 0.7853981633974483, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "cameraDistance": {"init_value": 3.0, "max": [10.0], "min": [0.0], "type": "float"}, "cameraOrigin": {"init_value": [0, -1.0, 0], "max": [10, 10, 10], "min": [-10, -10, -10], "type": "vec3"}, "resolution": {"init_value": [512, 512], "max": [10000, 10000], "min": [1, 1], "type": "vec2"}, "sunAzimuth": {"init_value": 0.0, "max": [3.141592653589793], "min": [-3.141592653589793], "type": "float"}, "sunElevation": {"init_value": 0.5, "max": [1.5707963267948966], "min": [0.0], "type": "float"}}, "shader_code": "#version 300 es\n#ifdef GL_ES\nprecision highp float;\nprecision highp sampler2D;\nprecision highp sampler3D;\n#endif\nout vec4 fragColor;  // Define the output color variable\nuniform sampler2D distance_travelled;\n\n\n\n// Constants\nconst float AngularDiameterCos = 0.9999566769464484;\nconst float _AS_n = 1.0003;\nconst float _mieZenithLength = 1250.0;\nconst vec3 _SCENE_BOX_CENTER = vec3(0.0, 0.5, 0.0);\nconst float _rayleighZenithLength = 8400.0;\nconst vec3 _lambda = vec3(6.8e-07, 5.5e-07, 4.5e-07);\nconst vec3 _SCENE_BOX_SIZE = vec3(10.0, 5.0, 10.0);\nconst vec3 _up = vec3(0.0, 0.0, 1.0);\nconst vec3 _K = vec3(0.686, 0.678, 0.666);\nconst float _V = 4.0;\nconst float _steepness = 1.5;\nconst float _mieCoefficient = 0.005;\nconst int _ZERO = 0;\nconst float _AS_N = 2.545e+25;\nconst float _EE = 1000.0;\nconst float _turbidity = 10.0;\nconst int _RAYCAST_MAX_STEPS = 200;\nconst float _AO_MAX_DIST = 3.0;\nconst bool _ADD_FLOOR_PLANE = false;\nconst float _SCENE_RADIUS = 100.0;\nconst float _AS_pn = 0.035;\nconst float _reileighCoefficient = 2.0;\nconst float _RAYCAST_CONSERVATIVE_STEPPING_RATE = 0.99;\nconst int _AA = 1;\nconst float PI = 3.141592653589793;\nconst float _FOCAL_LENGTH = 2.5;\nconst float _mieDirectionalG = 0.75;\nconst int _AO_STEPS = 4;\nconst int _SHADOW_MAX_STEPS = 64;\nconst float _cutoffAngle = 1.6110731556870734;\n\n// Uniforms\nuniform float backgroundAzimuth;\nuniform vec3 cameraOrigin;\nuniform float sunElevation;\nuniform float cameraAngleY;\nuniform float backgroundElevation;\nuniform float sunAzimuth;\nuniform float cameraAngleX;\nuniform vec2 resolution;\nuniform float cameraDistance;\n\n// Module: Translate3D\nvec3 Translate3D( vec3 p, vec3 translation )\n{\n    return p - translation;\n}\n\n// Module: AxisAngleRotate3D\nvec3 AxisAngleRotate3D( vec3 p, vec3 axis_angle )\n{\n    float theta = length(axis_angle);\n    vec3 axis = normalize(axis_angle);\n    mat3 K = mat3(0.0, -axis.z, axis.y, axis.z, 0.0, -axis.x, -axis.y, axis.x, 0.0);\n    float s = sin(theta);\n    float c = cos(theta);\n    mat3 R = mat3(1.0) + s * K + (1.0 - c) * (K * K);\n    return p * R;  // row vector multiplied from left\n}\n\n// Module: setCamera_v1\nmat3 setCamera( in vec3 ro, in vec3 ta, float cr )\n{\n\tvec3 cw = normalize(ta-ro);\n\tvec3 cp = vec3(sin(cr), cos(cr),0.0);\n\tvec3 cu = normalize( cross(cw,cp) );\n\tvec3 cv =          ( cross(cu,cw) );\n    return mat3( cu, cv, cw );\n}\n\n// Module: BaseMaterials_v4\nstruct Material {\n    vec3 albedo;\n    vec3 emissive;\n    vec3 mrc;\n};\nfloat sat(float x) {\n    return clamp(x, 0.0, 1.0);\n}\nvec3 sat(vec3 x) {\n    return clamp(x, 0.0, 1.0);\n}\nMaterial MixMaterial(Material a, Material b, float t) {\n    Material mat;\n    mat.albedo = mix(a.albedo, b.albedo, t);\n    mat.emissive = mix(a.emissive, b.emissive, t);\n    mat.mrc = mix(a.mrc, b.mrc, t);\n    return mat;\n}\n\n// Module: NeoBaseV1\nfloat HalfRoundedRectangle2D( in vec2 p, in vec2 b, in float r )\n{\n    vec2 size = b / 2.0;\n    vec2 q = abs(p) - size +r;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;\n}\nfloat HalfRoundedRectangle2D( in vec2 p, in vec2 b, in vec4 r )\n{\n    vec2 size = b / 2.0;\n    r.xy = (p.x\u003e0.0)?r.xy : r.zw;\n    r.x  = (p.y\u003e0.0)?r.x  : r.y;\n    vec2 q = abs(p) - size + r.x;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;\n}\nfloat RoundedRectangle2D( in vec2 p, in vec2 size, in float r )\n{\n    vec2 q = abs(p) - size +r;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;\n}\nfloat RoundedRectangle2D( in vec2 p, in vec2 size, in vec4 r )\n{\n    r.xy = (p.x\u003e0.0)?r.xy : r.zw;\n    r.x  = (p.y\u003e0.0)?r.x  : r.y;\n    vec2 q = abs(p) - size + r.x;\n    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r.x;\n}\n\n// Module: ToneMappingBase\nconst float W =11.2; // white scale\nconst float A = 0.22; // shoulder strength\nconst float B = 0.3; // linear strength\nconst float C = 0.1; // linear angle\nconst float D = 0.20; // toe strength\nconst float E = 0.01; // toe numerator\nconst float F = 0.30; // toe denominator\nvec3 LinearToSRGB(vec3 x) \n{\n    vec3 t = step(x,vec3(0.0031308));\n    return mix(1.055*pow(x, vec3(1./2.4)) - 0.055, 12.92*x, t);\n}\n\n// Module: ACESFitted\nvec3 ACESFitted(vec3 color) {\n    color = pow(color, vec3(0.833));\n    color *= 1.07;\n    const mat3 ACESInput = mat3(\n        0.59719, 0.35458, 0.04823,\n        0.07600, 0.90834, 0.01566,\n        0.02840, 0.13383, 0.83777\n    );\n    const mat3 ACESOutput = mat3(\n        1.60475, -0.53108, -0.07367,\n        -0.10208,  1.10813, -0.00605,\n        -0.00327, -0.07276,  1.07602\n    );\n    color = color * ACESInput;\n    vec3 a = color * (color + 0.0245786) - 0.000090537;\n    vec3 b = color * (0.983729 * color + 0.4329510) + 0.38081;\n    color = a/b;\n    return color * ACESOutput;\n}\n\n// Module: Hash\nfloat Hash(float seed)\n{\n    return fract(sin(seed)*43758.5453 );\n}\nfloat Hash(in vec3 p)  \n{\n    p  = fract( p*0.3199+0.152 );\n\tp *= 17.0;\n    return fract( p.x*p.y*p.z*(p.x+p.y+p.z) );\n}\n\n// Module: MatRotationX\nmat3 MatRotationX(float theta)\n{   \n    float _sin = sin(theta);\n    float _cos = cos(theta);\n    return mat3(    1,     0,     0,\n                    0,  _cos, -_sin,\n                    0,  _sin,  _cos);\n}\n\n// Module: MaterialV4\nMaterial MaterialV4(vec3 albedo, vec3 emissive, vec3 mrc)\n{   \n    Material mat;\n    mat.albedo = albedo;\n    mat.emissive = emissive;\n    mat.mrc = mrc;\n    return mat;\n}\n\n// Module: MatPlastic_v4\nMaterial MatPlastic(vec3 p, vec3 n) {\n    Material mat;\n    mat.albedo = vec3(1);\n    mat.mrc.xy = vec2(0.0, 0.2);\n    return mat;\n}\n\n// Module: MATPoint\nstruct MATPoint {\n    float x;\n    Material mat;\n};\n\n// Module: NeoTaperedOnion\n/* 2d determinant (aka cross2d) */\nfloat det( in vec2 a, in vec2 b ) { return a.x*b.y - a.y*b.x; }\n/* Modified from iq\u0027s: https://www.shadertoy.com/view/3tdSDj\n   Returns signed distance to segment and also the side (left/right = neg/pos) */\nvec2 sdSegmentWithSign( in vec2 p, in vec2 a, in vec2 b )\n{\n\tvec2 pa = p - a;\n\tvec2 ba = b - a;\n\tfloat h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );\n\treturn vec2(length( pa - ba*h ), det(pa, ba));\n}\n/* Signed distance to non-intersecting, convex quad. */\nfloat sdQuad(in vec2 pos, in vec2 p0, in vec2 p1, in vec2 p2, in vec2 p3)\n{\n    vec2 sd0 = sdSegmentWithSign(pos, p0, p1);\n    vec2 sd1 = sdSegmentWithSign(pos, p1, p2);\n    vec2 sd2 = sdSegmentWithSign(pos, p2, p3);\n    vec2 sd3 = sdSegmentWithSign(pos, p3, p0);\n    float sd = min(sd0.x, min(sd1.x, min(sd2.x, sd3.x)));\n    /* Point tests to the left of all segments. */\n    /* Can probably do something more clever here :) */\n    if (sd0.y \u003c 0.0f \u0026\u0026 sd1.y \u003c 0.0f \u0026\u0026 sd2.y \u003c 0.0f \u0026\u0026 sd3.y \u003c 0.0f)\n      sd = -sd;\n    return sd;\n}\nfloat cross2D(vec2 a, vec2 b) { return a.x*b.y - a.y*b.x; }\nfloat sdTaperTrapezoidOnionExact(vec2 p, float inner, float h, float x3, float onion_ratio)\n{\n    float xL = -inner * (1.0 - onion_ratio);\n    float xTL = -inner + (x3 + inner) * onion_ratio;\n    float yB = -h, yT =  h;\n    vec2  Lb = vec2(xL, yB), Lt = vec2(xTL, yT);\n    vec2  Rb = vec2(0.0, yB), Rt = vec2(x3,  yT);\n    vec2  eS = Rt - Rb;                     // slanted edge vector = (x3, 2h)\n    vec2  eS_L = Lt - Lb;                     // slanted edge vector = (x3, 2h)\n    float inv_e2 = 1.0 / dot(eS, eS);       // precompute once\n    float inv_e2_L = 1.0 / dot(eS_L, eS_L);\n    vec2  pa_L        = p - Lb;\n    float t_L         = clamp(dot(pa_L, eS_L) * inv_e2_L, 0.0, 1.0);\n    vec2  q_slant_L   = Lb + eS_L * t_L;\n    float d2_slant_L  = dot(p - q_slant_L, p - q_slant_L);\n    float x_cl_bot  = clamp(p.x, xL, 0.0);\n    vec2  q_bot     = vec2(x_cl_bot, yB);\n    float d2_bottom = dot(p - q_bot, p - q_bot);\n    float x_min_top = xTL;\n    float x_max_top = x3;\n    float x_cl_top  = clamp(p.x, x_min_top, x_max_top);\n    vec2  q_top     = vec2(x_cl_top, yT);\n    float d2_top    = dot(p - q_top, p - q_top);\n    vec2  pa        = p - Rb;\n    float t         = clamp(dot(pa, eS) * inv_e2, 0.0, 1.0);\n    vec2  q_slant   = Rb + eS * t;\n    float d2_slant  = dot(p - q_slant, p - q_slant);\n    float d2 = min(min(d2_slant_L, d2_bottom), min(d2_top, d2_slant));\n    float cL_L = eS_L.y*(p.x - Lb.x) - eS_L.x*(p.y - Lb.y); // det(p-Lb, eS_L)\n    cL_L = - cL_L;\n    float cB = yB - p.y;                 // bottom\n    float cT = p.y - yT;                 // top\n    float cS = eS.y*(p.x - Rb.x) - eS.x*(p.y - Rb.y); // det(p-Rb, eS)\n    bool inside = max(max(cL_L, cB), max(cT, cS)) \u003c= 0.0;\n    float d = sqrt(d2);\n    return inside ? -d : d;\n}\nfloat NeoTaperedOnion(vec3 p, vec3 size, float roundness, float dilate_3d, float scale, float onion_ratio)\n{\n    vec2 uv = p.xy;\n    float min_size = min(size.x, size.y)  * 0.5;\n    float r = roundness * min_size;\n    float sdf2d  = HalfRoundedRectangle2D(uv, size.xy, r);\n    vec2 pos_2d = vec2(sdf2d, p.z);\n    float half_height = 0.5 * size.z;              // y extent\n    float x3     = -(1.0 - scale) * min_size;\n    float sd = sdTaperTrapezoidOnionExact(pos_2d, min_size, half_height, x3, onion_ratio);\n    return sd - dilate_3d;\n}\n\n// Module: ToneMapping\n\nvec3 ToneMapping(vec3 color) {\n    color = color*0.2;\n    color = ACESFitted(color);\n    color = clamp(LinearToSRGB(color), 0.0, 1.0);\n    return color;\n}\n\n// Module: Voronoi\nvec3 Voronoi( in vec3 x )\n{\n    vec3 p = floor( x );\n    vec3 f = fract( x );\n\tfloat id = 0.0;\n    vec2 res = vec2( 100.0 );\n    for( int k=-1; k\u003c=1; k++ )\n    for( int j=-1; j\u003c=1; j++ )\n    for( int i=-1; i\u003c=1; i++ )\n    {\n        vec3 b = vec3( float(i), float(j), float(k) );\n        vec3 r = vec3( b ) - f + Hash( p + b );\n        float d = dot( r, r );\n        if( d \u003c res.x )\n        {\n\t\t\tid = dot( p+b, vec3(1.0,57.0,113.0 ) );\n            res = vec2( d, res.x );\t\t\t\n        }\n        else if( d \u003c res.y )\n        {\n            res.y = d;\n        }\n    }\n    return vec3( sqrt( res ), abs(id) );\n}\n\n// Module: Noise\nfloat Noise(in vec3 p)\n{\n    vec3 i = floor(p);\n    vec3 f = fract(p);\n    f = f*f*(3.0-2.0*f);\n    return mix(mix(mix( Hash(i+vec3(0,0,0)), \n                        Hash(i+vec3(1,0,0)),f.x),\n                   mix( Hash(i+vec3(0,1,0)), \n                        Hash(i+vec3(1,1,0)),f.x),f.y),\n               mix(mix( Hash(i+vec3(0,0,1)), \n                        Hash(i+vec3(1,0,1)),f.x),\n                   mix( Hash(i+vec3(0,1,1)), \n                        Hash(i+vec3(1,1,1)),f.x),f.y),f.z);\n}\n\n// Module: SCENE_MATERIAL\n\nMaterial SCENE_MATERIAL(in vec3 p, in vec3 n, in float y)\n{\n    int index = int(y);\n    switch (index) {\n        \n        default: return MatPlastic(p, n);\n    }\n}\n\n\n// Module: GeomOnlySmoothUnion\n\nMATPoint GeomOnlySmoothUnion( MATPoint res1, MATPoint res2, float k )\n{\n    MATPoint out_res;\n    if (res1.x \u003c res2.x) {\n        out_res = res1;\n    }else{\n        out_res = res2;\n    }\n\n    float h = clamp( 0.5 + 0.5*(res2.x - res1.x)/k, 0.0, 1.0 );\n    float new_x = mix( res2.x, res1.x, h ) - k*h*(1.0-h);\n    out_res.x = new_x;\n    return out_res;\n}\n\n\nvec2 GeomOnlySmoothUnion( vec2 res1, vec2 res2, float k )\n{\n    vec2 out_res;\n    if (res1.x \u003c res2.x) {\n        out_res = res1;\n    }else{\n        out_res = res2;\n    }\n\n    float h = clamp( 0.5 + 0.5*(res2.x - res1.x)/k, 0.0, 1.0 );\n    float new_x = mix( res2.x, res1.x, h ) - k*h*(1.0-h);\n    out_res.x = new_x;\n    return out_res;\n}\n\n\n// Module: MatSolidV4\nMATPoint MatSolidV4( float sdf, Material mat )\n{\n  MATPoint out_res;\n  out_res.x = sdf;\n  out_res.mat = mat;\n  return out_res;\n}\nMATPoint MatSolidV4( MATPoint res, Material mat )\n{ \n  MATPoint out_res;\n  out_res.x = res.x;\n  out_res.mat = mat;\n  return  out_res;\n}\n\n// Module: NTCO\n#define PI 3.14159265359\nvec2 rot90(vec2 v){ return vec2(-v.y, v.x); }\nvec2 mapArcBulge(vec2 p, float z, float bulge)\n{\n    float eps = 1e-5;\n    float half_z = 0.5 * z;\n    float theta_top = max(bulge * (PI * 0.5), eps);\n    float center_pos = half_z / tan(theta_top);\n    vec2  center = vec2(center_pos, 0.0);\n    float radius = sqrt(center_pos * center_pos + half_z * half_z);\n    float point_angle = atan(p.y, center_pos - p.x);\n    float new_y = clamp(point_angle / theta_top, -1.0, 1.0) * half_z;\n    float new_x = length(p - center) - radius;\n    vec2  inside_point = vec2(new_x, new_y);\n    float s = sin(theta_top), c = cos(theta_top);\n    vec2 t_top = normalize(vec2(s,  c));\n    vec2 n_top = vec2(-t_top.y, t_top.x);\n    vec2 end_top = vec2(0.0,  half_z);\n    float along_top = dot(p - end_top, t_top);\n    float perp_top  = dot(p - end_top, n_top);\n    vec2 above_point = vec2(perp_top, half_z + along_top);\n    vec2 t_bot = normalize(vec2(-s,  c));\n    vec2 n_bot = vec2(-t_bot.y, t_bot.x);\n    vec2 end_bot = vec2(0.0, -half_z);\n    float along_bot = dot(p - end_bot, t_bot);\n    float perp_bot  = dot(p - end_bot, n_bot);\n    vec2 below_point = vec2(perp_bot, -half_z + along_bot);\n    float mask_above = step(theta_top, point_angle);     // angle \u003e  +theta\n    float mask_below = step(point_angle, -theta_top);    // angle \u003c  -theta\n    vec2 new_point = mix(inside_point, above_point, mask_above);\n    new_point = mix(new_point, below_point, mask_below);\n    return new_point;\n}\nfloat NTCO(vec3 p, vec3 size, float roundness, float dilate_3d, float scale, float bulge_ratio, float onion_ratio)\n{   \n    vec3 new_p = p;\n    float bulge = bulge_ratio;\n    if (bulge \u003e 0.0)\n    {\n        vec2 new_xz = mapArcBulge(p.xz, size.z, bulge);\n        new_p = vec3(new_xz.x, p.y, new_xz.y);\n    }\n    float sd = NeoTaperedOnion(new_p, size, roundness, dilate_3d, scale, onion_ratio);\n    return sd;\n}\n\n// Module: Fbm\nfloat Fbm(vec3 p, int octave) {\n    float v = 0.,  a = .5;\n    mat3 R = MatRotationX(.37);\n    for (int i = 0; i \u003c octave; ++i, p*=2.0, a/=2.0) \n        p *= R,\n        v += a * Noise(p);\n    return v;\n}\n\n// Module: GEOM_EXPRESSION\n\nvec2 GEOM_EXPRESSION(vec3 pos_0) {\n    vec3 pos_1 = Translate3D(pos_0, vec3(-0.120878875255585, 0.76565021276474, -0.0521987080574036));\nvec3 pos_2 = AxisAngleRotate3D(pos_1, vec3(-0.00806342251598835, -0.0612985156476498, 0.0352451168000698));\nfloat sdf_0 = NTCO(pos_2, vec3(0.191819787025452, 0.125402212142944, 0.41054105758667),0.651978015899658,0.0666450858116150,0.0521337389945984,0.00179722905158997,0.0127745866775513);\nvec2 prim_0 = vec2(sdf_0, 0);\nvec2 res_1 = prim_0;\nvec3 pos_3 = Translate3D(pos_0, vec3(-0.338462799787521, -0.591989517211914, 0.507381439208984));\nvec3 pos_4 = AxisAngleRotate3D(pos_3, vec3(0.568835973739624, -1.15968561172485, 2.67578554153442));\nfloat sdf_2 = NTCO(pos_4, vec3(0.0329222679138184, 0.0284442901611328, 0.288369357585907),0.341081082820892,0.0674331188201904,0.932752907276154,0.0983741581439972,0.0419048964977264);\nvec2 prim_1 = vec2(sdf_2, 1);\nvec2 res_3 = prim_1;\nvec2 sdf_4 = GeomOnlySmoothUnion(res_1, res_3, 0.000445425510406494);\nvec3 pos_5 = Translate3D(pos_0, vec3(0.257373958826065, -0.60994291305542, -0.497174948453903));\nvec3 pos_6 = AxisAngleRotate3D(pos_5, vec3(-1.35712289810181, -1.16561377048492, -0.415162324905396));\nfloat sdf_5 = NTCO(pos_6, vec3(0.0258159637451172, 0.0309050679206848, 0.266447126865387),0.152544766664505,0.0666631460189819,1.20254969596863,0.00315159559249878,0.0158120691776276);\nvec2 prim_2 = vec2(sdf_5, 2);\nvec2 res_6 = prim_2;\nvec2 sdf_7 = GeomOnlySmoothUnion(sdf_4, res_6, 0.649808764457703);\nvec3 pos_7 = Translate3D(pos_0, vec3(-0.0536617822945118, 0.292375415563583, 0.0209126826375723));\nvec3 pos_8 = AxisAngleRotate3D(pos_7, vec3(0.163891077041626, -3.41422820091248, -0.184963718056679));\nfloat sdf_8 = NTCO(pos_8, vec3(0.221626937389374, 0.304502189159393, 0.0869770646095276),0.857511758804321,0.00167709589004517,1.14681565761566,0.00680193305015564,0.971097230911255);\nvec2 prim_3 = vec2(sdf_8, 3);\nvec2 res_9 = prim_3;\nvec2 sdf_10 = GeomOnlySmoothUnion(sdf_7, res_9, 0.182949304580688);\nvec3 pos_9 = Translate3D(pos_0, vec3(-0.161240950226784, 0.370317667722702, 0.422897726297379));\nvec3 pos_10 = AxisAngleRotate3D(pos_9, vec3(2.04803156852722, -0.747976422309875, 1.04750823974609));\nfloat sdf_11 = NTCO(pos_10, vec3(0.0933377742767334, 0.101584613323212, 0.374485790729523),0.983223438262939,0.0261141657829285,0.336135625839233,0.000953614711761475,0.0222528874874115);\nvec2 prim_4 = vec2(sdf_11, 4);\nvec2 res_12 = prim_4;\nvec2 sdf_13 = GeomOnlySmoothUnion(sdf_10, res_12, 0.111843466758728);\nvec3 pos_11 = Translate3D(pos_0, vec3(0.179953515529633, 0.087932176887989, -0.3149054646492));\nvec3 pos_12 = AxisAngleRotate3D(pos_11, vec3(-0.0731199532747269, -0.87346225976944, -3.31648063659668));\nfloat sdf_14 = NTCO(pos_12, vec3(0.0980144739151001, 0.0998581051826477, 0.191446959972382),0.948562502861023,0.0337374508380890,0.329249441623688,0.000571787357330322,0.0220962762832642);\nvec2 prim_5 = vec2(sdf_14, 5);\nvec2 res_15 = prim_5;\nvec2 sdf_16 = GeomOnlySmoothUnion(sdf_13, res_15, 0.211779713630676);\nvec3 pos_13 = Translate3D(pos_0, vec3(-0.0335851684212685, -0.360042363405228, -0.311897069215775));\nvec3 pos_14 = AxisAngleRotate3D(pos_13, vec3(-0.465541183948517, 0.860797345638275, 3.40581059455872));\nfloat sdf_17 = NTCO(pos_14, vec3(0.10039210319519, 0.0933113098144531, 0.425034701824188),0.461548745632172,0.00296741724014282,1.30808544158936,0.000268518924713135,0.00311210751533508);\nvec2 prim_6 = vec2(sdf_17, 6);\nvec2 res_18 = prim_6;\nvec2 sdf_19 = GeomOnlySmoothUnion(sdf_16, res_18, 0.152742147445679);\nvec3 pos_15 = Translate3D(pos_0, vec3(-0.347585409879684, -0.314388781785965, 0.247912973165512));\nvec3 pos_16 = AxisAngleRotate3D(pos_15, vec3(-0.483308732509613, -2.07416892051697, -0.89652156829834));\nfloat sdf_20 = NTCO(pos_16, vec3(0.112275779247284, 0.100060999393463, 0.419591665267944),0.555600583553314,0.00310796499252319,1.17974972724915,0.000193923711776733,0.00207352638244629);\nvec2 prim_7 = vec2(sdf_20, 7);\nvec2 res_21 = prim_7;\nvec2 sdf_22 = GeomOnlySmoothUnion(sdf_19, res_21, 0.111895620822906);\nvec3 pos_17 = Translate3D(pos_0, vec3(0.00168937398120761, -0.0811331644654274, 0.0493502803146839));\nvec3 pos_18 = AxisAngleRotate3D(pos_17, vec3(-1.1318975687027, -0.751734375953674, -0.194897159934044));\nfloat sdf_23 = NTCO(pos_18, vec3(0.127496242523193, 0.145165026187897, 0.130483031272888),0.00121387839317322,0.00753986835479736,0.704921245574951,0.190347105264664,0.0147600769996643);\nvec2 prim_8 = vec2(sdf_23, 8);\nvec2 res_24 = prim_8;\nvec2 sdf_25 = GeomOnlySmoothUnion(sdf_22, res_24, 0.250403523445129);\nvec3 pos_19 = Translate3D(pos_0, vec3(0.337355464696884, -0.791612386703491, -0.596174716949463));\nvec3 pos_20 = AxisAngleRotate3D(pos_19, vec3(-1.14258480072021, -0.832169532775879, -3.05039072036743));\nfloat sdf_26 = NTCO(pos_20, vec3(0.0893685817718506, 0.0235567092895508, 0.243293523788452),0.998803973197937,0.0257478058338165,0.424341380596161,0.275148510932922,0.0185890793800354);\nvec2 prim_9 = vec2(sdf_26, 9);\nvec2 res_27 = prim_9;\nvec2 sdf_28 = GeomOnlySmoothUnion(sdf_25, res_27, 0.0315696001052856);\nvec3 pos_21 = Translate3D(pos_0, vec3(-0.441657871007919, -0.854647815227509, 0.601324677467346));\nvec3 pos_22 = AxisAngleRotate3D(pos_21, vec3(0.118187107145786, -1.47828149795532, -0.162107139825821));\nfloat sdf_29 = NTCO(pos_22, vec3(0.134398937225342, 0.0530532002449036, 0.0863252282142639),0.713699221611023,0.0113514661788940,1.99012899398804,0.000497639179229736,0.00210499763488770);\nvec2 prim_10 = vec2(sdf_29, 10);\nvec2 res_30 = prim_10;\nvec2 sdf_31 = GeomOnlySmoothUnion(sdf_28, res_30, 0.0734688639640808);\nvec3 pos_23 = Translate3D(pos_0, vec3(-0.0199314560741186, 0.279852628707886, 0.138062968850136));\nvec3 pos_24 = AxisAngleRotate3D(pos_23, vec3(1.42023110389709, -1.96826255321503, 2.0379626750946));\nfloat sdf_32 = NTCO(pos_24, vec3(0.152181267738342, 0.0360068082809448, 0.104187309741974),0.0138863325119019,0.00881731510162354,0.537509620189667,0.0816201269626617,0.181551247835159);\nvec2 prim_11 = vec2(sdf_32, 11);\nvec2 res_33 = prim_11;\nvec2 sdf_34 = GeomOnlySmoothUnion(sdf_31, res_33, 0.131235599517822);\nvec3 pos_25 = Translate3D(pos_0, vec3(-0.223513916134834, 0.321699291467667, 0.458510994911194));\nvec3 pos_26 = AxisAngleRotate3D(pos_25, vec3(-1.51792800426483, -0.494909107685089, 2.68079161643982));\nfloat sdf_35 = NTCO(pos_26, vec3(0.0625002384185791, 0.0375686287879944, 0.387804865837097),0.978555679321289,0.0100160539150238,0.267482519149780,0.0274133384227753,0.235574096441269);\nvec2 prim_12 = vec2(sdf_35, 12);\nvec2 res_36 = prim_12;\nvec2 sdf_37 = GeomOnlySmoothUnion(sdf_34, res_36, 0.0246691107749939);\nvec3 pos_27 = Translate3D(pos_0, vec3(0.469049036502838, -0.82869029045105, -0.502618074417114));\nvec3 pos_28 = AxisAngleRotate3D(pos_27, vec3(0.31202095746994, -2.45511770248413, 0.24805548787117));\nfloat sdf_38 = NTCO(pos_28, vec3(0.0396572351455688, 0.104324281215668, 0.0600677728652954),0.977862834930420,0.00715735554695129,1.87817764282227,0.920330047607422,0.0964769423007965);\nvec2 prim_13 = vec2(sdf_38, 13);\nvec2 res_39 = prim_13;\nvec2 sdf_40 = GeomOnlySmoothUnion(sdf_37, res_39, 0.0818779468536377);\nvec3 pos_29 = Translate3D(pos_0, vec3(0.126152038574219, -0.100927986204624, -0.432967483997345));\nvec3 pos_30 = AxisAngleRotate3D(pos_29, vec3(-0.519145786762238, 0.237612962722778, 0.171607434749603));\nfloat sdf_41 = NTCO(pos_30, vec3(0.1266108751297, 0.0295165181159973, 0.0210981369018555),0.237369835376740,0.0105189085006714,1.94607281684875,0.319304943084717,0.950172603130341);\nvec2 prim_14 = vec2(sdf_41, 14);\nvec2 res_42 = prim_14;\nvec2 sdf_43 = GeomOnlySmoothUnion(sdf_40, res_42, 0.0702427625656128);\nvec3 pos_31 = Translate3D(pos_0, vec3(0.0709396004676819, -0.126501530408859, -0.481445282697678));\nvec3 pos_32 = AxisAngleRotate3D(pos_31, vec3(2.02107167243958, -1.18782782554626, 2.18553471565247));\nfloat sdf_44 = NTCO(pos_32, vec3(0.0475853681564331, 0.0742170214653015, 0.097877025604248),0.421373128890991,0.0169244110584259,1.27863144874573,0.219009369611740,0.931966066360474);\nvec2 prim_15 = vec2(sdf_44, 15);\nvec2 res_45 = prim_15;\nvec2 sdf_46 = GeomOnlySmoothUnion(sdf_43, res_45, 0.00100660324096680);\nvec3 pos_33 = Translate3D(pos_0, vec3(-0.260716438293457, -0.789645552635193, 0.620776832103729));\nvec3 pos_34 = AxisAngleRotate3D(pos_33, vec3(3.27755856513977, 0.237027257680893, 0.0147474221885204));\nfloat sdf_47 = NTCO(pos_34, vec3(0.221447587013245, 0.0465361475944519, 0.154243290424347),0.910593509674072,0.0131728649139404,0.278973519802094,0.115097910165787,0.00332349538803101);\nvec2 prim_16 = vec2(sdf_47, 16);\nvec2 res_48 = prim_16;\nvec2 sdf_49 = GeomOnlySmoothUnion(sdf_46, res_48, 0.0596644878387451);\nvec3 pos_35 = Translate3D(pos_0, vec3(-0.0625895112752914, 0.4578016102314, 0.198023915290833));\nvec3 pos_36 = AxisAngleRotate3D(pos_35, vec3(-0.190428540110588, -0.331076174974442, -0.157829284667969));\nfloat sdf_50 = NTCO(pos_36, vec3(0.0371819734573364, 0.035728931427002, 0.306212961673737),0.986981749534607,0.0187646746635437,1.95638751983643,0.00104716420173645,0.317587375640869);\nvec2 prim_17 = vec2(sdf_50, 17);\nvec2 res_51 = prim_17;\nvec2 sdf_52 = GeomOnlySmoothUnion(sdf_49, res_51, 0.00109964609146118);\nvec3 pos_37 = Translate3D(pos_0, vec3(0.07835803180933, 0.300254136323929, -0.178412526845932));\nvec3 pos_38 = AxisAngleRotate3D(pos_37, vec3(-0.872599184513092, 1.66812562942505, 1.60093104839325));\nfloat sdf_53 = NTCO(pos_38, vec3(0.0706112384796143, 0.0730807185173035, 0.335524559020996),0.913957118988037,0.0115907490253448,0.753237247467041,0.00511398911476135,0.135689318180084);\nvec2 prim_18 = vec2(sdf_53, 18);\nvec2 res_54 = prim_18;\nvec2 sdf_55 = GeomOnlySmoothUnion(sdf_52, res_54, 0.0863680839538574);\nvec3 pos_39 = Translate3D(pos_0, vec3(-0.249398127198219, 0.643955230712891, -0.137250766158104));\nvec3 pos_40 = AxisAngleRotate3D(pos_39, vec3(-1.20372343063354, -1.20959770679474, -1.24171996116638));\nfloat sdf_56 = NTCO(pos_40, vec3(0.0625002980232239, 0.0720416307449341, 0.134536921977997),0.482819378376007,0.00894242525100708,1.96908962726593,0.000326544046401978,0.0127212405204773);\nvec2 prim_19 = vec2(sdf_56, 19);\nvec2 res_57 = prim_19;\nvec2 sdf_58 = GeomOnlySmoothUnion(sdf_55, res_57, 0.0589318871498108);\nvec3 pos_41 = Translate3D(pos_0, vec3(-0.0432436466217041, 0.43498882651329, -0.0313991755247116));\nvec3 pos_42 = AxisAngleRotate3D(pos_41, vec3(-0.800001680850983, -0.810909569263458, -0.0828739032149315));\nfloat sdf_59 = NTCO(pos_42, vec3(0.129867613315582, 0.0718494057655334, 0.166787981987),0.990622699260712,0.0100511312484741,0.210219025611877,0.00787281990051270,0.336968094110489);\nvec2 prim_20 = vec2(sdf_59, 20);\nvec2 res_60 = prim_20;\nvec2 sdf_61 = GeomOnlySmoothUnion(sdf_58, res_60, 0.0939320325851440);\nvec3 pos_43 = Translate3D(pos_0, vec3(-0.127413332462311, 0.315158188343048, -0.0937498211860657));\nvec3 pos_44 = AxisAngleRotate3D(pos_43, vec3(1.54724645614624, 0.41124352812767, 2.97554802894592));\nfloat sdf_62 = NTCO(pos_44, vec3(0.111064910888672, 0.208487629890442, 0.0309364199638367),0.924682259559631,0.00699579715728760,1.83923983573914,0.0293080508708954,0.0961321890354156);\nvec2 prim_21 = vec2(sdf_62, 21);\nvec2 res_63 = prim_21;\nvec2 sdf_64 = GeomOnlySmoothUnion(sdf_61, res_63, 0.0198173522949219);\nvec3 pos_45 = Translate3D(pos_0, vec3(-0.169664442539215, -0.859605431556702, 0.640037000179291));\nvec3 pos_46 = AxisAngleRotate3D(pos_45, vec3(-1.59933531284332, 0.330228835344315, 0.0230561885982752));\nfloat sdf_65 = NTCO(pos_46, vec3(0.0362364053726196, 0.13460773229599, 0.0859982967376709),0.0173180699348450,0.00323075056076050,1.99095201492310,0.00199061632156372,0.000756859779357910);\nvec2 prim_22 = vec2(sdf_65, 22);\nvec2 res_66 = prim_22;\nvec2 sdf_67 = GeomOnlySmoothUnion(sdf_64, res_66, 0.0602976679801941);\nvec3 pos_47 = Translate3D(pos_0, vec3(-0.133310407400131, 0.580661773681641, -0.225377693772316));\nvec3 pos_48 = AxisAngleRotate3D(pos_47, vec3(1.33807587623596, -1.12833833694458, 1.27704203128815));\nfloat sdf_68 = NTCO(pos_48, vec3(0.11542147397995, 0.0152806639671326, 0.145498394966125),0.367410719394684,0.0304042696952820,1.10070657730103,0.395455777645111,0.0436198413372040);\nvec2 prim_23 = vec2(sdf_68, 23);\nvec2 res_69 = prim_23;\nvec2 sdf_70 = GeomOnlySmoothUnion(sdf_67, res_69, 0.0698143243789673);\nvec3 pos_49 = Translate3D(pos_0, vec3(-0.0742054656147957, -0.0944922491908073, 0.0328744947910309));\nvec3 pos_50 = AxisAngleRotate3D(pos_49, vec3(1.52235889434814, 0.138858869671822, 0.59666907787323));\nfloat sdf_71 = NTCO(pos_50, vec3(0.17452472448349, 0.0178697109222412, 0.134290754795074),0.0239576697349548,0.0110337138175964,0.562038123607635,0.00139218568801880,0.236974537372589);\nvec2 prim_24 = vec2(sdf_71, 24);\nvec2 res_72 = prim_24;\nvec2 sdf_73 = GeomOnlySmoothUnion(sdf_70, res_72, 0.0259466767311096);\nvec3 pos_51 = Translate3D(pos_0, vec3(0.0350810363888741, 0.326810538768768, -0.0679446756839752));\nvec3 pos_52 = AxisAngleRotate3D(pos_51, vec3(-1.20106887817383, -0.526423692703247, -0.911091089248657));\nfloat sdf_74 = NTCO(pos_52, vec3(0.120552539825439, 0.0768553018569946, 0.256349325180054),0.00508689880371094,0.00445333123207092,0.130120575428009,0.000535130500793457,0.104034304618835);\nvec2 prim_25 = vec2(sdf_74, 25);\nvec2 res_75 = prim_25;\nvec2 sdf_76 = GeomOnlySmoothUnion(sdf_73, res_75, 0.0921374559402466);\nvec3 pos_53 = Translate3D(pos_0, vec3(-0.119075402617455, 0.641633689403534, 0.0576204396784306));\nvec3 pos_54 = AxisAngleRotate3D(pos_53, vec3(1.30819702148438, -1.23991894721985, 1.2814234495163));\nfloat sdf_77 = NTCO(pos_54, vec3(0.0232087969779968, 0.262997388839722, 0.155216157436371),0.725388586521149,0.0413256585597992,1.01625001430511,0.000230133533477783,0.0242499411106110);\nvec2 prim_26 = vec2(sdf_77, 26);\nvec2 res_78 = prim_26;\nvec2 sdf_79 = GeomOnlySmoothUnion(sdf_76, res_78, 0.0254583954811096);\nvec3 pos_55 = Translate3D(pos_0, vec3(-0.108938530087471, 0.24271933734417, 0.0124667240306735));\nvec3 pos_56 = AxisAngleRotate3D(pos_55, vec3(-0.092048205435276, -0.261366456747055, 0.0965513437986374));\nfloat sdf_80 = NTCO(pos_56, vec3(0.0248267650604248, 0.176454246044159, 0.0251068472862244),0.936906337738037,0.00124618411064148,1.85665309429169,0.115944385528564,0.973919749259949);\nvec2 prim_27 = vec2(sdf_80, 27);\nvec2 res_81 = prim_27;\nvec2 sdf_82 = GeomOnlySmoothUnion(sdf_79, res_81, 0.101242303848267);\nvec3 pos_57 = Translate3D(pos_0, vec3(-0.0278857741504908, 0.654678225517273, -0.130130991339684));\nvec3 pos_58 = AxisAngleRotate3D(pos_57, vec3(-0.420569717884064, 1.13283717632294, -3.07790732383728));\nfloat sdf_83 = NTCO(pos_58, vec3(0.0713923573493958, 0.064251184463501, 0.0508072376251221),0.00186973810195923,0.0123523175716400,1.86932587623596,0.0964489281177521,0.0545223653316498);\nvec2 prim_28 = vec2(sdf_83, 28);\nvec2 res_84 = prim_28;\nvec2 sdf_85 = GeomOnlySmoothUnion(sdf_82, res_84, 0.0622388124465942);\nvec3 pos_59 = Translate3D(pos_0, vec3(-0.354055225849152, 0.204348027706146, 0.482001423835754));\nvec3 pos_60 = AxisAngleRotate3D(pos_59, vec3(-1.77923429012299, 0.657918035984039, 0.827032208442688));\nfloat sdf_86 = NTCO(pos_60, vec3(0.0318080186843872, 0.0334332585334778, 0.177897870540619),0.898687005043030,0.0114223062992096,0.540278434753418,0.826611220836639,0.00965204834938049);\nvec2 prim_29 = vec2(sdf_86, 29);\nvec2 res_87 = prim_29;\nvec2 sdf_88 = GeomOnlySmoothUnion(sdf_85, res_87, 0.0345754027366638);\nvec3 pos_61 = Translate3D(pos_0, vec3(-0.106828860938549, -0.179681092500687, 0.16704823076725));\nvec3 pos_62 = AxisAngleRotate3D(pos_61, vec3(1.81564903259277, -0.710138440132141, 3.40938663482666));\nfloat sdf_89 = NTCO(pos_62, vec3(0.0858945846557617, 0.0510400533676147, 0.137654781341553),0.00103217363357544,0.00224667787551880,1.06596875190735,0.00670430064201355,0.790699124336243);\nvec2 prim_30 = vec2(sdf_89, 30);\nvec2 res_90 = prim_30;\nvec2 sdf_91 = GeomOnlySmoothUnion(sdf_88, res_90, 0.0704815387725830);\nvec3 pos_63 = Translate3D(pos_0, vec3(-0.00865702796727419, 0.186279475688934, -0.135769471526146));\nvec3 pos_64 = AxisAngleRotate3D(pos_63, vec3(0.561316609382629, -1.480344414711, 1.95648264884949));\nfloat sdf_92 = NTCO(pos_64, vec3(0.0654555559158325, 0.0422319173812866, 0.0789695978164673),0.971544146537781,0.00362965464591980,0.521221160888672,0.497554957866669,0.00674784183502197);\nvec2 prim_31 = vec2(sdf_92, 31);\nvec2 res_93 = prim_31;\nvec2 sdf_94 = GeomOnlySmoothUnion(sdf_91, res_93, 0.108354628086090);\nvec3 pos_65 = Translate3D(pos_0, vec3(-0.0240575987845659, 0.374195635318756, 0.0935513079166412));\nvec3 pos_66 = AxisAngleRotate3D(pos_65, vec3(0.939081847667694, -1.26734375953674, 2.81470680236816));\nfloat sdf_95 = NTCO(pos_66, vec3(0.162536859512329, 0.0244635939598083, 0.257856786251068),0.986858606338501,0.00769343972206116,1.36627268791199,0.00114253163337708,0.921058177947998);\nvec2 prim_32 = vec2(sdf_95, 32);\nvec2 res_96 = prim_32;\nvec2 sdf_97 = GeomOnlySmoothUnion(sdf_94, res_96, 0.0412419438362122);\nvec3 pos_67 = Translate3D(pos_0, vec3(-0.0367753021419048, -0.178111657500267, -0.101346962153912));\nvec3 pos_68 = AxisAngleRotate3D(pos_67, vec3(-0.713848352432251, 1.33566629886627, -2.55491065979004));\nfloat sdf_98 = NTCO(pos_68, vec3(0.0495731830596924, 0.0718769431114197, 0.0814600586891174),0.00164979696273804,0.00749096274375916,1.88002634048462,0.0393580794334412,0.00683552026748657);\nvec2 prim_33 = vec2(sdf_98, 33);\nvec2 res_99 = prim_33;\nvec2 sdf_100 = GeomOnlySmoothUnion(sdf_97, res_99, 0.0248941183090210);\nvec3 pos_69 = Translate3D(pos_0, vec3(-0.124717347323895, 0.532711029052734, 0.0344759859144688));\nvec3 pos_70 = AxisAngleRotate3D(pos_69, vec3(-0.695438504219055, 1.40881061553955, 0.794321477413177));\nfloat sdf_101 = NTCO(pos_70, vec3(0.0171880125999451, 0.0178458094596863, 0.220685184001923),0.981479525566101,0.0121766328811646,0.916714012622833,0.778045773506165,0.0119068920612335);\nvec2 prim_34 = vec2(sdf_101, 34);\nvec2 res_102 = prim_34;\nvec2 sdf_103 = GeomOnlySmoothUnion(sdf_100, res_102, 0.0265432596206665);\nvec3 pos_71 = Translate3D(pos_0, vec3(-0.292433977127075, 0.66326105594635, -0.181336760520935));\nvec3 pos_72 = AxisAngleRotate3D(pos_71, vec3(0.298888891935349, -0.120701052248478, -0.00814259704202414));\nfloat sdf_104 = NTCO(pos_72, vec3(0.0118585824966431, 0.0389291644096375, 0.28088241815567),0.958813309669495,0.00687813758850098,1.52759909629822,0.0267487466335297,0.00161096453666687);\nvec2 prim_35 = vec2(sdf_104, 35);\nvec2 res_105 = prim_35;\nvec2 sdf_106 = GeomOnlySmoothUnion(sdf_103, res_105, 0.0390350222587585);\nvec3 pos_73 = Translate3D(pos_0, vec3(-0.121966496109962, 0.352217882871628, 0.0715227648615837));\nvec3 pos_74 = AxisAngleRotate3D(pos_73, vec3(0.646709442138672, 2.65767407417297, 1.15112817287445));\nfloat sdf_107 = NTCO(pos_74, vec3(0.0280852317810059, 0.07954341173172, 0.197372555732727),0.988692879676819,0.0159506201744080,1.93574619293213,0.00105530023574829,0.0303120315074921);\nvec2 prim_36 = vec2(sdf_107, 36);\nvec2 res_108 = prim_36;\nvec2 sdf_109 = GeomOnlySmoothUnion(sdf_106, res_108, 0.0293962359428406);\nvec3 pos_75 = Translate3D(pos_0, vec3(-0.397809058427811, 0.14095664024353, 0.599635720252991));\nvec3 pos_76 = AxisAngleRotate3D(pos_75, vec3(1.04390919208527, -1.10659003257751, 3.99171948432922));\nfloat sdf_110 = NTCO(pos_76, vec3(0.0683805346488953, 0.11061555147171, 0.0149277448654175),0.101800054311752,0.0138248801231384,0.408172249794006,0.000832676887512207,0.854405164718628);\nvec2 prim_37 = vec2(sdf_110, 37);\nvec2 res_111 = prim_37;\nvec2 sdf_112 = GeomOnlySmoothUnion(sdf_109, res_111, 0.0683997273445129);\nvec3 pos_77 = Translate3D(pos_0, vec3(-0.111014038324356, -0.20064215362072, -0.108796536922455));\nvec3 pos_78 = AxisAngleRotate3D(pos_77, vec3(0.935622274875641, 0.204120755195618, 0.475549787282944));\nfloat sdf_113 = NTCO(pos_78, vec3(0.0114449858665466, 0.108161807060242, 0.141586720943451),0.0548917651176453,0.00526374578475952,0.872982263565063,0.119339704513550,0.00115141272544861);\nvec2 prim_38 = vec2(sdf_113, 38);\nvec2 res_114 = prim_38;\nvec2 sdf_115 = GeomOnlySmoothUnion(sdf_112, res_114, 0.0140663981437683);\nvec3 pos_79 = Translate3D(pos_0, vec3(0.00107952510006726, 0.17604698240757, 0.0406806208193302));\nvec3 pos_80 = AxisAngleRotate3D(pos_79, vec3(1.16185438632965, -1.34373235702515, -0.562975347042084));\nfloat sdf_116 = NTCO(pos_80, vec3(0.104648053646088, 0.164465606212616, 0.134714722633362),0.994412779808044,0.0120371878147125,0.107272803783417,0.138047218322754,0.184850633144379);\nvec2 prim_39 = vec2(sdf_116, 39);\nvec2 res_117 = prim_39;\nvec2 sdf_118 = GeomOnlySmoothUnion(sdf_115, res_117, 0.0214478969573975);\nvec3 pos_81 = Translate3D(pos_0, vec3(-0.329070031642914, 0.34260556101799, 0.510149300098419));\nvec3 pos_82 = AxisAngleRotate3D(pos_81, vec3(0.877054929733276, -2.36174964904785, 2.0834047794342));\nfloat sdf_119 = NTCO(pos_82, vec3(0.23237282037735, 0.0653204321861267, 0.0108824968338013),0.990820288658142,0.0263902544975281,1.97104966640472,0.200314819812775,0.953111886978149);\nvec2 prim_40 = vec2(sdf_119, 40);\nvec2 res_120 = prim_40;\nvec2 sdf_121 = GeomOnlySmoothUnion(sdf_118, res_120, 0.0213274359703064);\nvec3 pos_83 = Translate3D(pos_0, vec3(-0.478425890207291, 0.17503459751606, 0.579148530960083));\nvec3 pos_84 = AxisAngleRotate3D(pos_83, vec3(-1.80745506286621, -0.960803508758545, -0.561015903949738));\nfloat sdf_122 = NTCO(pos_84, vec3(0.0957059264183044, 0.0127999186515808, 0.0136455297470093),0.833275854587555,0.0127345621585846,1.36731398105621,0.00294283032417297,0.00854241847991943);\nvec2 prim_41 = vec2(sdf_122, 41);\nvec2 res_123 = prim_41;\nvec2 sdf_124 = GeomOnlySmoothUnion(sdf_121, res_123, 0.00121766328811646);\nvec3 pos_85 = Translate3D(pos_0, vec3(-0.374959707260132, 0.225186079740524, 0.576327562332153));\nvec3 pos_86 = AxisAngleRotate3D(pos_85, vec3(-0.549940764904022, 1.75642704963684, 0.420389175415039));\nfloat sdf_125 = NTCO(pos_86, vec3(0.0914620161056519, 0.013810396194458, 0.0999814867973328),0.953131914138794,0.0167505741119385,0.724075317382813,0.182968974113464,0.128347337245941);\nvec2 prim_42 = vec2(sdf_125, 42);\nvec2 res_126 = prim_42;\nvec2 sdf_127 = GeomOnlySmoothUnion(sdf_124, res_126, 0.0233094096183777);\nvec3 pos_87 = Translate3D(pos_0, vec3(0.389947086572647, -0.851387500762939, -0.617447555065155));\nvec3 pos_88 = AxisAngleRotate3D(pos_87, vec3(2.95907688140869, 0.052607748657465, -1.22091364860535));\nfloat sdf_128 = NTCO(pos_88, vec3(0.210998833179474, 0.10538238286972, 0.254456341266632),0.285954415798187,0.00596156716346741,0.597171127796173,0.322922617197037,0.971731066703796);\nvec2 prim_43 = vec2(sdf_128, 43);\nvec2 res_129 = prim_43;\nvec2 sdf_130 = GeomOnlySmoothUnion(sdf_127, res_129, 0.0562054514884949);\nvec3 pos_89 = Translate3D(pos_0, vec3(0.0319758988916874, 0.627357840538025, -0.237511917948723));\nvec3 pos_90 = AxisAngleRotate3D(pos_89, vec3(-2.05811309814453, 0.11890970915556, -1.95913469791412));\nfloat sdf_131 = NTCO(pos_90, vec3(0.223689615726471, 0.0611547231674194, 0.0134954452514648),0.0000605285167694092,0.00383988022804260,0.742573142051697,0.000747650861740112,0.00338459014892578);\nvec2 prim_44 = vec2(sdf_131, 44);\nvec2 res_132 = prim_44;\nvec2 sdf_133 = GeomOnlySmoothUnion(sdf_130, res_132, 0.0569391846656799);\nvec3 pos_91 = Translate3D(pos_0, vec3(-0.137896820902824, 0.808759391307831, -0.33758533000946));\nvec3 pos_92 = AxisAngleRotate3D(pos_91, vec3(1.42148923873901, -1.20343422889709, 1.31211495399475));\nfloat sdf_134 = NTCO(pos_92, vec3(0.0117069482803345, 0.0520766973495483, 0.283858835697174),0.0000605285167694092,0.00287079811096191,0.944839537143707,0.433514058589935,0.00274249911308289);\nvec2 prim_45 = vec2(sdf_134, 45);\nvec2 res_135 = prim_45;\nvec2 sdf_136 = GeomOnlySmoothUnion(sdf_133, res_135, 0.0406041741371155);\nvec3 pos_93 = Translate3D(pos_0, vec3(-0.108770303428173, 0.472332417964935, -0.0778885260224342));\nvec3 pos_94 = AxisAngleRotate3D(pos_93, vec3(0.524253964424133, -2.60024547576904, -1.71126794815063));\nfloat sdf_137 = NTCO(pos_94, vec3(0.0317291021347046, 0.0256758332252502, 0.231004595756531),0.878237545490265,0.0238679349422455,0.500765502452850,0.00704956054687500,0.0679752826690674);\nvec2 prim_46 = vec2(sdf_137, 46);\nvec2 res_138 = prim_46;\nvec2 sdf_139 = GeomOnlySmoothUnion(sdf_136, res_138, 0.00499182939529419);\nvec3 pos_95 = Translate3D(pos_0, vec3(-0.0353709310293198, 0.157343477010727, 0.135076388716698));\nvec3 pos_96 = AxisAngleRotate3D(pos_95, vec3(0.735409796237946, -0.309192448854446, 0.966831922531128));\nfloat sdf_140 = NTCO(pos_96, vec3(0.0241724252700806, 0.022632896900177, 0.211554825305939),0.963347792625427,0.00845095515251160,1.32401382923126,0.559843659400940,0.0259713828563690);\nvec2 prim_47 = vec2(sdf_140, 47);\nvec2 res_141 = prim_47;\nvec2 sdf_142 = GeomOnlySmoothUnion(sdf_139, res_141, 0.0140038132667542);\nvec3 pos_97 = Translate3D(pos_0, vec3(0.187157139182091, -0.0220437254756689, -0.504682302474976));\nvec3 pos_98 = AxisAngleRotate3D(pos_97, vec3(-0.289525866508484, -1.396559715271, 0.54473465681076));\nfloat sdf_143 = NTCO(pos_98, vec3(0.0430691838264465, 0.0121105909347534, 0.0936163067817688),0.947574257850647,0.00423315167427063,1.31409525871277,0.967304408550262,0.0159190595149994);\nvec2 prim_48 = vec2(sdf_143, 48);\nvec2 res_144 = prim_48;\nvec2 sdf_145 = GeomOnlySmoothUnion(sdf_142, res_144, 0.150415897369385);\nvec3 pos_99 = Translate3D(pos_0, vec3(0.0792446285486221, 0.112236268818378, -0.0795431956648827));\nvec3 pos_100 = AxisAngleRotate3D(pos_99, vec3(-0.468825846910477, 1.81934332847595, 2.16837430000305));\nfloat sdf_146 = NTCO(pos_100, vec3(0.0355694070458412, 0.0391238033771515, 0.0466464757919312),0.604730963706970,0.00999999977648258,1.09504461288452,0.00999999977648258,0.0250000003725290);\nvec2 prim_49 = vec2(sdf_146, 49);\nvec2 res_147 = prim_49;\nvec2 sdf_148 = GeomOnlySmoothUnion(sdf_145, res_147, 0.00999999977648258);\nreturn sdf_148;\n}\n\n// Module: SCENE_EXPRESSION\n\nMATPoint SCENE_EXPRESSION(vec3 pos_0) {\n    vec3 pos_1 = Translate3D(pos_0, vec3(-0.120878875255585, 0.76565021276474, -0.0521987080574036));\nvec3 pos_2 = AxisAngleRotate3D(pos_1, vec3(-0.00806342251598835, -0.0612985156476498, 0.0352451168000698));\nfloat sdf_0 = NTCO(pos_2, vec3(0.191819787025452, 0.125402212142944, 0.41054105758667),0.651978015899658,0.0666450858116150,0.0521337389945984,0.00179722905158997,0.0127745866775513);\nMaterial mat_0 = MaterialV4(vec3(0.0, 0.5, 1.0), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_1 = MatSolidV4(sdf_0, mat_0);\nvec3 pos_3 = Translate3D(pos_0, vec3(-0.338462799787521, -0.591989517211914, 0.507381439208984));\nvec3 pos_4 = AxisAngleRotate3D(pos_3, vec3(0.568835973739624, -1.15968561172485, 2.67578554153442));\nfloat sdf_2 = NTCO(pos_4, vec3(0.0329222679138184, 0.0284442901611328, 0.288369357585907),0.341081082820892,0.0674331188201904,0.932752907276154,0.0983741581439972,0.0419048964977264);\nMaterial mat_1 = MaterialV4(vec3(1.0, 0.5, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_3 = MatSolidV4(sdf_2, mat_1);\nMATPoint sdf_4 = GeomOnlySmoothUnion(res_1, res_3, 0.000445425510406494);\nvec3 pos_5 = Translate3D(pos_0, vec3(0.257373958826065, -0.60994291305542, -0.497174948453903));\nvec3 pos_6 = AxisAngleRotate3D(pos_5, vec3(-1.35712289810181, -1.16561377048492, -0.415162324905396));\nfloat sdf_5 = NTCO(pos_6, vec3(0.0258159637451172, 0.0309050679206848, 0.266447126865387),0.152544766664505,0.0666631460189819,1.20254969596863,0.00315159559249878,0.0158120691776276);\nMaterial mat_2 = MaterialV4(vec3(0.5, 0.75, 0.5), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_6 = MatSolidV4(sdf_5, mat_2);\nMATPoint sdf_7 = GeomOnlySmoothUnion(sdf_4, res_6, 0.649808764457703);\nvec3 pos_7 = Translate3D(pos_0, vec3(-0.0536617822945118, 0.292375415563583, 0.0209126826375723));\nvec3 pos_8 = AxisAngleRotate3D(pos_7, vec3(0.163891077041626, -3.41422820091248, -0.184963718056679));\nfloat sdf_8 = NTCO(pos_8, vec3(0.221626937389374, 0.304502189159393, 0.0869770646095276),0.857511758804321,0.00167709589004517,1.14681565761566,0.00680193305015564,0.971097230911255);\nMaterial mat_3 = MaterialV4(vec3(0.7074466818895134, 0.01729852031646384, 0.2424242054473731), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_9 = MatSolidV4(sdf_8, mat_3);\nMATPoint sdf_10 = GeomOnlySmoothUnion(sdf_7, res_9, 0.182949304580688);\nvec3 pos_9 = Translate3D(pos_0, vec3(-0.161240950226784, 0.370317667722702, 0.422897726297379));\nvec3 pos_10 = AxisAngleRotate3D(pos_9, vec3(2.04803156852722, -0.747976422309875, 1.04750823974609));\nfloat sdf_11 = NTCO(pos_10, vec3(0.0933377742767334, 0.101584613323212, 0.374485790729523),0.983223438262939,0.0261141657829285,0.336135625839233,0.000953614711761475,0.0222528874874115);\nMaterial mat_4 = MaterialV4(vec3(0.29901459488871907, 0.027759796163825068, 0.815986599064201), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_12 = MatSolidV4(sdf_11, mat_4);\nMATPoint sdf_13 = GeomOnlySmoothUnion(sdf_10, res_12, 0.111843466758728);\nvec3 pos_11 = Translate3D(pos_0, vec3(0.179953515529633, 0.087932176887989, -0.3149054646492));\nvec3 pos_12 = AxisAngleRotate3D(pos_11, vec3(-0.0731199532747269, -0.87346225976944, -3.31648063659668));\nfloat sdf_14 = NTCO(pos_12, vec3(0.0980144739151001, 0.0998581051826477, 0.191446959972382),0.948562502861023,0.0337374508380890,0.329249441623688,0.000571787357330322,0.0220962762832642);\nMaterial mat_5 = MaterialV4(vec3(0.9037583373663173, 0.9998271150989997, 0.08861047951686496), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_15 = MatSolidV4(sdf_14, mat_5);\nMATPoint sdf_16 = GeomOnlySmoothUnion(sdf_13, res_15, 0.211779713630676);\nvec3 pos_13 = Translate3D(pos_0, vec3(-0.0335851684212685, -0.360042363405228, -0.311897069215775));\nvec3 pos_14 = AxisAngleRotate3D(pos_13, vec3(-0.465541183948517, 0.860797345638275, 3.40581059455872));\nfloat sdf_17 = NTCO(pos_14, vec3(0.10039210319519, 0.0933113098144531, 0.425034701824188),0.461548745632172,0.00296741724014282,1.30808544158936,0.000268518924713135,0.00311210751533508);\nMaterial mat_6 = MaterialV4(vec3(0.14618938110105684, 0.5044513983962677, 0.05142459089594276), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_18 = MatSolidV4(sdf_17, mat_6);\nMATPoint sdf_19 = GeomOnlySmoothUnion(sdf_16, res_18, 0.152742147445679);\nvec3 pos_15 = Translate3D(pos_0, vec3(-0.347585409879684, -0.314388781785965, 0.247912973165512));\nvec3 pos_16 = AxisAngleRotate3D(pos_15, vec3(-0.483308732509613, -2.07416892051697, -0.89652156829834));\nfloat sdf_20 = NTCO(pos_16, vec3(0.112275779247284, 0.100060999393463, 0.419591665267944),0.555600583553314,0.00310796499252319,1.17974972724915,0.000193923711776733,0.00207352638244629);\nMaterial mat_7 = MaterialV4(vec3(0.7862986145661378, 0.488575400393246, 0.9866399439014754), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_21 = MatSolidV4(sdf_20, mat_7);\nMATPoint sdf_22 = GeomOnlySmoothUnion(sdf_19, res_21, 0.111895620822906);\nvec3 pos_17 = Translate3D(pos_0, vec3(0.00168937398120761, -0.0811331644654274, 0.0493502803146839));\nvec3 pos_18 = AxisAngleRotate3D(pos_17, vec3(-1.1318975687027, -0.751734375953674, -0.194897159934044));\nfloat sdf_23 = NTCO(pos_18, vec3(0.127496242523193, 0.145165026187897, 0.130483031272888),0.00121387839317322,0.00753986835479736,0.704921245574951,0.190347105264664,0.0147600769996643);\nMaterial mat_8 = MaterialV4(vec3(0.0, 1.0, 1.0), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_24 = MatSolidV4(sdf_23, mat_8);\nMATPoint sdf_25 = GeomOnlySmoothUnion(sdf_22, res_24, 0.250403523445129);\nvec3 pos_19 = Translate3D(pos_0, vec3(0.337355464696884, -0.791612386703491, -0.596174716949463));\nvec3 pos_20 = AxisAngleRotate3D(pos_19, vec3(-1.14258480072021, -0.832169532775879, -3.05039072036743));\nfloat sdf_26 = NTCO(pos_20, vec3(0.0893685817718506, 0.0235567092895508, 0.243293523788452),0.998803973197937,0.0257478058338165,0.424341380596161,0.275148510932922,0.0185890793800354);\nMaterial mat_9 = MaterialV4(vec3(0.0, 1.0, 0.5), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_27 = MatSolidV4(sdf_26, mat_9);\nMATPoint sdf_28 = GeomOnlySmoothUnion(sdf_25, res_27, 0.0315696001052856);\nvec3 pos_21 = Translate3D(pos_0, vec3(-0.441657871007919, -0.854647815227509, 0.601324677467346));\nvec3 pos_22 = AxisAngleRotate3D(pos_21, vec3(0.118187107145786, -1.47828149795532, -0.162107139825821));\nfloat sdf_29 = NTCO(pos_22, vec3(0.134398937225342, 0.0530532002449036, 0.0863252282142639),0.713699221611023,0.0113514661788940,1.99012899398804,0.000497639179229736,0.00210499763488770);\nMaterial mat_10 = MaterialV4(vec3(0.06252075424586645, 0.31923985177440195, 0.5113596649015805), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_30 = MatSolidV4(sdf_29, mat_10);\nMATPoint sdf_31 = GeomOnlySmoothUnion(sdf_28, res_30, 0.0734688639640808);\nvec3 pos_23 = Translate3D(pos_0, vec3(-0.0199314560741186, 0.279852628707886, 0.138062968850136));\nvec3 pos_24 = AxisAngleRotate3D(pos_23, vec3(1.42023110389709, -1.96826255321503, 2.0379626750946));\nfloat sdf_32 = NTCO(pos_24, vec3(0.152181267738342, 0.0360068082809448, 0.104187309741974),0.0138863325119019,0.00881731510162354,0.537509620189667,0.0816201269626617,0.181551247835159);\nMaterial mat_11 = MaterialV4(vec3(0.9637993354942991, 0.2874253898814192, 0.5062755925321513), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_33 = MatSolidV4(sdf_32, mat_11);\nMATPoint sdf_34 = GeomOnlySmoothUnion(sdf_31, res_33, 0.131235599517822);\nvec3 pos_25 = Translate3D(pos_0, vec3(-0.223513916134834, 0.321699291467667, 0.458510994911194));\nvec3 pos_26 = AxisAngleRotate3D(pos_25, vec3(-1.51792800426483, -0.494909107685089, 2.68079161643982));\nfloat sdf_35 = NTCO(pos_26, vec3(0.0625002384185791, 0.0375686287879944, 0.387804865837097),0.978555679321289,0.0100160539150238,0.267482519149780,0.0274133384227753,0.235574096441269);\nMaterial mat_12 = MaterialV4(vec3(0.47916384475618523, 0.8202505665523725, 0.9897989631202403), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_36 = MatSolidV4(sdf_35, mat_12);\nMATPoint sdf_37 = GeomOnlySmoothUnion(sdf_34, res_36, 0.0246691107749939);\nvec3 pos_27 = Translate3D(pos_0, vec3(0.469049036502838, -0.82869029045105, -0.502618074417114));\nvec3 pos_28 = AxisAngleRotate3D(pos_27, vec3(0.31202095746994, -2.45511770248413, 0.24805548787117));\nfloat sdf_38 = NTCO(pos_28, vec3(0.0396572351455688, 0.104324281215668, 0.0600677728652954),0.977862834930420,0.00715735554695129,1.87817764282227,0.920330047607422,0.0964769423007965);\nMaterial mat_13 = MaterialV4(vec3(0.9718403958216287, 0.6894328942759398, 0.502511849507525), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_39 = MatSolidV4(sdf_38, mat_13);\nMATPoint sdf_40 = GeomOnlySmoothUnion(sdf_37, res_39, 0.0818779468536377);\nvec3 pos_29 = Translate3D(pos_0, vec3(0.126152038574219, -0.100927986204624, -0.432967483997345));\nvec3 pos_30 = AxisAngleRotate3D(pos_29, vec3(-0.519145786762238, 0.237612962722778, 0.171607434749603));\nfloat sdf_41 = NTCO(pos_30, vec3(0.1266108751297, 0.0295165181159973, 0.0210981369018555),0.237369835376740,0.0105189085006714,1.94607281684875,0.319304943084717,0.950172603130341);\nMaterial mat_14 = MaterialV4(vec3(0.5162471654879219, 0.7737573738934576, 0.0067622660793810185), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_42 = MatSolidV4(sdf_41, mat_14);\nMATPoint sdf_43 = GeomOnlySmoothUnion(sdf_40, res_42, 0.0702427625656128);\nvec3 pos_31 = Translate3D(pos_0, vec3(0.0709396004676819, -0.126501530408859, -0.481445282697678));\nvec3 pos_32 = AxisAngleRotate3D(pos_31, vec3(2.02107167243958, -1.18782782554626, 2.18553471565247));\nfloat sdf_44 = NTCO(pos_32, vec3(0.0475853681564331, 0.0742170214653015, 0.097877025604248),0.421373128890991,0.0169244110584259,1.27863144874573,0.219009369611740,0.931966066360474);\nMaterial mat_15 = MaterialV4(vec3(0.5823096468861145, 0.38189622912648424, 0.20414973296923022), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_45 = MatSolidV4(sdf_44, mat_15);\nMATPoint sdf_46 = GeomOnlySmoothUnion(sdf_43, res_45, 0.00100660324096680);\nvec3 pos_33 = Translate3D(pos_0, vec3(-0.260716438293457, -0.789645552635193, 0.620776832103729));\nvec3 pos_34 = AxisAngleRotate3D(pos_33, vec3(3.27755856513977, 0.237027257680893, 0.0147474221885204));\nfloat sdf_47 = NTCO(pos_34, vec3(0.221447587013245, 0.0465361475944519, 0.154243290424347),0.910593509674072,0.0131728649139404,0.278973519802094,0.115097910165787,0.00332349538803101);\nMaterial mat_16 = MaterialV4(vec3(0.04660790857292896, 0.6551079528183981, 0.6320764569061993), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_48 = MatSolidV4(sdf_47, mat_16);\nMATPoint sdf_49 = GeomOnlySmoothUnion(sdf_46, res_48, 0.0596644878387451);\nvec3 pos_35 = Translate3D(pos_0, vec3(-0.0625895112752914, 0.4578016102314, 0.198023915290833));\nvec3 pos_36 = AxisAngleRotate3D(pos_35, vec3(-0.190428540110588, -0.331076174974442, -0.157829284667969));\nfloat sdf_50 = NTCO(pos_36, vec3(0.0371819734573364, 0.035728931427002, 0.306212961673737),0.986981749534607,0.0187646746635437,1.95638751983643,0.00104716420173645,0.317587375640869);\nMaterial mat_17 = MaterialV4(vec3(0.5029428946671808, 0.31276767284016027, 0.6327951582799355), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_51 = MatSolidV4(sdf_50, mat_17);\nMATPoint sdf_52 = GeomOnlySmoothUnion(sdf_49, res_51, 0.00109964609146118);\nvec3 pos_37 = Translate3D(pos_0, vec3(0.07835803180933, 0.300254136323929, -0.178412526845932));\nvec3 pos_38 = AxisAngleRotate3D(pos_37, vec3(-0.872599184513092, 1.66812562942505, 1.60093104839325));\nfloat sdf_53 = NTCO(pos_38, vec3(0.0706112384796143, 0.0730807185173035, 0.335524559020996),0.913957118988037,0.0115907490253448,0.753237247467041,0.00511398911476135,0.135689318180084);\nMaterial mat_18 = MaterialV4(vec3(0.2856312502689795, 0.03974844382454468, 0.37572276989520725), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_54 = MatSolidV4(sdf_53, mat_18);\nMATPoint sdf_55 = GeomOnlySmoothUnion(sdf_52, res_54, 0.0863680839538574);\nvec3 pos_39 = Translate3D(pos_0, vec3(-0.249398127198219, 0.643955230712891, -0.137250766158104));\nvec3 pos_40 = AxisAngleRotate3D(pos_39, vec3(-1.20372343063354, -1.20959770679474, -1.24171996116638));\nfloat sdf_56 = NTCO(pos_40, vec3(0.0625002980232239, 0.0720416307449341, 0.134536921977997),0.482819378376007,0.00894242525100708,1.96908962726593,0.000326544046401978,0.0127212405204773);\nMaterial mat_19 = MaterialV4(vec3(0.7532986493678654, 0.9470181645035954, 0.6881178792270891), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_57 = MatSolidV4(sdf_56, mat_19);\nMATPoint sdf_58 = GeomOnlySmoothUnion(sdf_55, res_57, 0.0589318871498108);\nvec3 pos_41 = Translate3D(pos_0, vec3(-0.0432436466217041, 0.43498882651329, -0.0313991755247116));\nvec3 pos_42 = AxisAngleRotate3D(pos_41, vec3(-0.800001680850983, -0.810909569263458, -0.0828739032149315));\nfloat sdf_59 = NTCO(pos_42, vec3(0.129867613315582, 0.0718494057655334, 0.166787981987),0.990622699260712,0.0100511312484741,0.210219025611877,0.00787281990051270,0.336968094110489);\nMaterial mat_20 = MaterialV4(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_60 = MatSolidV4(sdf_59, mat_20);\nMATPoint sdf_61 = GeomOnlySmoothUnion(sdf_58, res_60, 0.0939320325851440);\nvec3 pos_43 = Translate3D(pos_0, vec3(-0.127413332462311, 0.315158188343048, -0.0937498211860657));\nvec3 pos_44 = AxisAngleRotate3D(pos_43, vec3(1.54724645614624, 0.41124352812767, 2.97554802894592));\nfloat sdf_62 = NTCO(pos_44, vec3(0.111064910888672, 0.208487629890442, 0.0309364199638367),0.924682259559631,0.00699579715728760,1.83923983573914,0.0293080508708954,0.0961321890354156);\nMaterial mat_21 = MaterialV4(vec3(0.7285565578155296, 0.0243158175732332, 0.6980669711690777), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_63 = MatSolidV4(sdf_62, mat_21);\nMATPoint sdf_64 = GeomOnlySmoothUnion(sdf_61, res_63, 0.0198173522949219);\nvec3 pos_45 = Translate3D(pos_0, vec3(-0.169664442539215, -0.859605431556702, 0.640037000179291));\nvec3 pos_46 = AxisAngleRotate3D(pos_45, vec3(-1.59933531284332, 0.330228835344315, 0.0230561885982752));\nfloat sdf_65 = NTCO(pos_46, vec3(0.0362364053726196, 0.13460773229599, 0.0859982967376709),0.0173180699348450,0.00323075056076050,1.99095201492310,0.00199061632156372,0.000756859779357910);\nMaterial mat_22 = MaterialV4(vec3(0.409094536007799, 0.4664321393239209, 0.9865134759005088), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_66 = MatSolidV4(sdf_65, mat_22);\nMATPoint sdf_67 = GeomOnlySmoothUnion(sdf_64, res_66, 0.0602976679801941);\nvec3 pos_47 = Translate3D(pos_0, vec3(-0.133310407400131, 0.580661773681641, -0.225377693772316));\nvec3 pos_48 = AxisAngleRotate3D(pos_47, vec3(1.33807587623596, -1.12833833694458, 1.27704203128815));\nfloat sdf_68 = NTCO(pos_48, vec3(0.11542147397995, 0.0152806639671326, 0.145498394966125),0.367410719394684,0.0304042696952820,1.10070657730103,0.395455777645111,0.0436198413372040);\nMaterial mat_23 = MaterialV4(vec3(0.6237990693634605, 0.20541933025572623, 0.9872807449191822), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_69 = MatSolidV4(sdf_68, mat_23);\nMATPoint sdf_70 = GeomOnlySmoothUnion(sdf_67, res_69, 0.0698143243789673);\nvec3 pos_49 = Translate3D(pos_0, vec3(-0.0742054656147957, -0.0944922491908073, 0.0328744947910309));\nvec3 pos_50 = AxisAngleRotate3D(pos_49, vec3(1.52235889434814, 0.138858869671822, 0.59666907787323));\nfloat sdf_71 = NTCO(pos_50, vec3(0.17452472448349, 0.0178697109222412, 0.134290754795074),0.0239576697349548,0.0110337138175964,0.562038123607635,0.00139218568801880,0.236974537372589);\nMaterial mat_24 = MaterialV4(vec3(0.07197493085642492, 0.7874894714622435, 0.24337685247753493), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_72 = MatSolidV4(sdf_71, mat_24);\nMATPoint sdf_73 = GeomOnlySmoothUnion(sdf_70, res_72, 0.0259466767311096);\nvec3 pos_51 = Translate3D(pos_0, vec3(0.0350810363888741, 0.326810538768768, -0.0679446756839752));\nvec3 pos_52 = AxisAngleRotate3D(pos_51, vec3(-1.20106887817383, -0.526423692703247, -0.911091089248657));\nfloat sdf_74 = NTCO(pos_52, vec3(0.120552539825439, 0.0768553018569946, 0.256349325180054),0.00508689880371094,0.00445333123207092,0.130120575428009,0.000535130500793457,0.104034304618835);\nMaterial mat_25 = MaterialV4(vec3(0.32996953673217777, 0.19806012412415652, 0.026084179664424667), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_75 = MatSolidV4(sdf_74, mat_25);\nMATPoint sdf_76 = GeomOnlySmoothUnion(sdf_73, res_75, 0.0921374559402466);\nvec3 pos_53 = Translate3D(pos_0, vec3(-0.119075402617455, 0.641633689403534, 0.0576204396784306));\nvec3 pos_54 = AxisAngleRotate3D(pos_53, vec3(1.30819702148438, -1.23991894721985, 1.2814234495163));\nfloat sdf_77 = NTCO(pos_54, vec3(0.0232087969779968, 0.262997388839722, 0.155216157436371),0.725388586521149,0.0413256585597992,1.01625001430511,0.000230133533477783,0.0242499411106110);\nMaterial mat_26 = MaterialV4(vec3(0.4069133680119492, 0.9990563054721739, 0.20857040794910342), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_78 = MatSolidV4(sdf_77, mat_26);\nMATPoint sdf_79 = GeomOnlySmoothUnion(sdf_76, res_78, 0.0254583954811096);\nvec3 pos_55 = Translate3D(pos_0, vec3(-0.108938530087471, 0.24271933734417, 0.0124667240306735));\nvec3 pos_56 = AxisAngleRotate3D(pos_55, vec3(-0.092048205435276, -0.261366456747055, 0.0965513437986374));\nfloat sdf_80 = NTCO(pos_56, vec3(0.0248267650604248, 0.176454246044159, 0.0251068472862244),0.936906337738037,0.00124618411064148,1.85665309429169,0.115944385528564,0.973919749259949);\nMaterial mat_27 = MaterialV4(vec3(0.011057981509049464, 0.17029620492784103, 0.9769165585144632), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_81 = MatSolidV4(sdf_80, mat_27);\nMATPoint sdf_82 = GeomOnlySmoothUnion(sdf_79, res_81, 0.101242303848267);\nvec3 pos_57 = Translate3D(pos_0, vec3(-0.0278857741504908, 0.654678225517273, -0.130130991339684));\nvec3 pos_58 = AxisAngleRotate3D(pos_57, vec3(-0.420569717884064, 1.13283717632294, -3.07790732383728));\nfloat sdf_83 = NTCO(pos_58, vec3(0.0713923573493958, 0.064251184463501, 0.0508072376251221),0.00186973810195923,0.0123523175716400,1.86932587623596,0.0964489281177521,0.0545223653316498);\nMaterial mat_28 = MaterialV4(vec3(0.34040387637418557, 0.9928489426407211, 0.72773748254357), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_84 = MatSolidV4(sdf_83, mat_28);\nMATPoint sdf_85 = GeomOnlySmoothUnion(sdf_82, res_84, 0.0622388124465942);\nvec3 pos_59 = Translate3D(pos_0, vec3(-0.354055225849152, 0.204348027706146, 0.482001423835754));\nvec3 pos_60 = AxisAngleRotate3D(pos_59, vec3(-1.77923429012299, 0.657918035984039, 0.827032208442688));\nfloat sdf_86 = NTCO(pos_60, vec3(0.0318080186843872, 0.0334332585334778, 0.177897870540619),0.898687005043030,0.0114223062992096,0.540278434753418,0.826611220836639,0.00965204834938049);\nMaterial mat_29 = MaterialV4(vec3(1.0, 0.0, 0.5), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_87 = MatSolidV4(sdf_86, mat_29);\nMATPoint sdf_88 = GeomOnlySmoothUnion(sdf_85, res_87, 0.0345754027366638);\nvec3 pos_61 = Translate3D(pos_0, vec3(-0.106828860938549, -0.179681092500687, 0.16704823076725));\nvec3 pos_62 = AxisAngleRotate3D(pos_61, vec3(1.81564903259277, -0.710138440132141, 3.40938663482666));\nfloat sdf_89 = NTCO(pos_62, vec3(0.0858945846557617, 0.0510400533676147, 0.137654781341553),0.00103217363357544,0.00224667787551880,1.06596875190735,0.00670430064201355,0.790699124336243);\nMaterial mat_30 = MaterialV4(vec3(0.8624398001993955, 0.2541322440872936, 0.07760682554158593), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_90 = MatSolidV4(sdf_89, mat_30);\nMATPoint sdf_91 = GeomOnlySmoothUnion(sdf_88, res_90, 0.0704815387725830);\nvec3 pos_63 = Translate3D(pos_0, vec3(-0.00865702796727419, 0.186279475688934, -0.135769471526146));\nvec3 pos_64 = AxisAngleRotate3D(pos_63, vec3(0.561316609382629, -1.480344414711, 1.95648264884949));\nfloat sdf_92 = NTCO(pos_64, vec3(0.0654555559158325, 0.0422319173812866, 0.0789695978164673),0.971544146537781,0.00362965464591980,0.521221160888672,0.497554957866669,0.00674784183502197);\nMaterial mat_31 = MaterialV4(vec3(0.29300073433844553, 0.5038884002913218, 0.3747274214615506), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_93 = MatSolidV4(sdf_92, mat_31);\nMATPoint sdf_94 = GeomOnlySmoothUnion(sdf_91, res_93, 0.108354628086090);\nvec3 pos_65 = Translate3D(pos_0, vec3(-0.0240575987845659, 0.374195635318756, 0.0935513079166412));\nvec3 pos_66 = AxisAngleRotate3D(pos_65, vec3(0.939081847667694, -1.26734375953674, 2.81470680236816));\nfloat sdf_95 = NTCO(pos_66, vec3(0.162536859512329, 0.0244635939598083, 0.257856786251068),0.986858606338501,0.00769343972206116,1.36627268791199,0.00114253163337708,0.921058177947998);\nMaterial mat_32 = MaterialV4(vec3(0.75, 0.5, 0.5), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_96 = MatSolidV4(sdf_95, mat_32);\nMATPoint sdf_97 = GeomOnlySmoothUnion(sdf_94, res_96, 0.0412419438362122);\nvec3 pos_67 = Translate3D(pos_0, vec3(-0.0367753021419048, -0.178111657500267, -0.101346962153912));\nvec3 pos_68 = AxisAngleRotate3D(pos_67, vec3(-0.713848352432251, 1.33566629886627, -2.55491065979004));\nfloat sdf_98 = NTCO(pos_68, vec3(0.0495731830596924, 0.0718769431114197, 0.0814600586891174),0.00164979696273804,0.00749096274375916,1.88002634048462,0.0393580794334412,0.00683552026748657);\nMaterial mat_33 = MaterialV4(vec3(0.8444215997904245, 0.7413462647069778, 0.025209898041768763), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_99 = MatSolidV4(sdf_98, mat_33);\nMATPoint sdf_100 = GeomOnlySmoothUnion(sdf_97, res_99, 0.0248941183090210);\nvec3 pos_69 = Translate3D(pos_0, vec3(-0.124717347323895, 0.532711029052734, 0.0344759859144688));\nvec3 pos_70 = AxisAngleRotate3D(pos_69, vec3(-0.695438504219055, 1.40881061553955, 0.794321477413177));\nfloat sdf_101 = NTCO(pos_70, vec3(0.0171880125999451, 0.0178458094596863, 0.220685184001923),0.981479525566101,0.0121766328811646,0.916714012622833,0.778045773506165,0.0119068920612335);\nMaterial mat_34 = MaterialV4(vec3(0.9945547003718775, 0.7243044366735275, 0.9338695935338903), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_102 = MatSolidV4(sdf_101, mat_34);\nMATPoint sdf_103 = GeomOnlySmoothUnion(sdf_100, res_102, 0.0265432596206665);\nvec3 pos_71 = Translate3D(pos_0, vec3(-0.292433977127075, 0.66326105594635, -0.181336760520935));\nvec3 pos_72 = AxisAngleRotate3D(pos_71, vec3(0.298888891935349, -0.120701052248478, -0.00814259704202414));\nfloat sdf_104 = NTCO(pos_72, vec3(0.0118585824966431, 0.0389291644096375, 0.28088241815567),0.958813309669495,0.00687813758850098,1.52759909629822,0.0267487466335297,0.00161096453666687);\nMaterial mat_35 = MaterialV4(vec3(1.0, 1.0, 0.5), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_105 = MatSolidV4(sdf_104, mat_35);\nMATPoint sdf_106 = GeomOnlySmoothUnion(sdf_103, res_105, 0.0390350222587585);\nvec3 pos_73 = Translate3D(pos_0, vec3(-0.121966496109962, 0.352217882871628, 0.0715227648615837));\nvec3 pos_74 = AxisAngleRotate3D(pos_73, vec3(0.646709442138672, 2.65767407417297, 1.15112817287445));\nfloat sdf_107 = NTCO(pos_74, vec3(0.0280852317810059, 0.07954341173172, 0.197372555732727),0.988692879676819,0.0159506201744080,1.93574619293213,0.00105530023574829,0.0303120315074921);\nMaterial mat_36 = MaterialV4(vec3(0.08192933205332364, 0.7416932344876782, 0.981588146639223), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_108 = MatSolidV4(sdf_107, mat_36);\nMATPoint sdf_109 = GeomOnlySmoothUnion(sdf_106, res_108, 0.0293962359428406);\nvec3 pos_75 = Translate3D(pos_0, vec3(-0.397809058427811, 0.14095664024353, 0.599635720252991));\nvec3 pos_76 = AxisAngleRotate3D(pos_75, vec3(1.04390919208527, -1.10659003257751, 3.99171948432922));\nfloat sdf_110 = NTCO(pos_76, vec3(0.0683805346488953, 0.11061555147171, 0.0149277448654175),0.101800054311752,0.0138248801231384,0.408172249794006,0.000832676887512207,0.854405164718628);\nMaterial mat_37 = MaterialV4(vec3(0.0009243814131298933, 0.1818043519417719, 0.252841696645698), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_111 = MatSolidV4(sdf_110, mat_37);\nMATPoint sdf_112 = GeomOnlySmoothUnion(sdf_109, res_111, 0.0683997273445129);\nvec3 pos_77 = Translate3D(pos_0, vec3(-0.111014038324356, -0.20064215362072, -0.108796536922455));\nvec3 pos_78 = AxisAngleRotate3D(pos_77, vec3(0.935622274875641, 0.204120755195618, 0.475549787282944));\nfloat sdf_113 = NTCO(pos_78, vec3(0.0114449858665466, 0.108161807060242, 0.141586720943451),0.0548917651176453,0.00526374578475952,0.872982263565063,0.119339704513550,0.00115141272544861);\nMaterial mat_38 = MaterialV4(vec3(0.9938507611304414, 0.29977590046343494, 0.9333803958757606), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_114 = MatSolidV4(sdf_113, mat_38);\nMATPoint sdf_115 = GeomOnlySmoothUnion(sdf_112, res_114, 0.0140663981437683);\nvec3 pos_79 = Translate3D(pos_0, vec3(0.00107952510006726, 0.17604698240757, 0.0406806208193302));\nvec3 pos_80 = AxisAngleRotate3D(pos_79, vec3(1.16185438632965, -1.34373235702515, -0.562975347042084));\nfloat sdf_116 = NTCO(pos_80, vec3(0.104648053646088, 0.164465606212616, 0.134714722633362),0.994412779808044,0.0120371878147125,0.107272803783417,0.138047218322754,0.184850633144379);\nMaterial mat_39 = MaterialV4(vec3(0.7153484713909326, 0.8931451944413906, 0.35258059503459993), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_117 = MatSolidV4(sdf_116, mat_39);\nMATPoint sdf_118 = GeomOnlySmoothUnion(sdf_115, res_117, 0.0214478969573975);\nvec3 pos_81 = Translate3D(pos_0, vec3(-0.329070031642914, 0.34260556101799, 0.510149300098419));\nvec3 pos_82 = AxisAngleRotate3D(pos_81, vec3(0.877054929733276, -2.36174964904785, 2.0834047794342));\nfloat sdf_119 = NTCO(pos_82, vec3(0.23237282037735, 0.0653204321861267, 0.0108824968338013),0.990820288658142,0.0263902544975281,1.97104966640472,0.200314819812775,0.953111886978149);\nMaterial mat_40 = MaterialV4(vec3(0.3671113008256076, 0.5873663424282706, 0.7150740147616196), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_120 = MatSolidV4(sdf_119, mat_40);\nMATPoint sdf_121 = GeomOnlySmoothUnion(sdf_118, res_120, 0.0213274359703064);\nvec3 pos_83 = Translate3D(pos_0, vec3(-0.478425890207291, 0.17503459751606, 0.579148530960083));\nvec3 pos_84 = AxisAngleRotate3D(pos_83, vec3(-1.80745506286621, -0.960803508758545, -0.561015903949738));\nfloat sdf_122 = NTCO(pos_84, vec3(0.0957059264183044, 0.0127999186515808, 0.0136455297470093),0.833275854587555,0.0127345621585846,1.36731398105621,0.00294283032417297,0.00854241847991943);\nMaterial mat_41 = MaterialV4(vec3(0.00014403837369447725, 0.04894351819988507, 0.6478024007403013), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_123 = MatSolidV4(sdf_122, mat_41);\nMATPoint sdf_124 = GeomOnlySmoothUnion(sdf_121, res_123, 0.00121766328811646);\nvec3 pos_85 = Translate3D(pos_0, vec3(-0.374959707260132, 0.225186079740524, 0.576327562332153));\nvec3 pos_86 = AxisAngleRotate3D(pos_85, vec3(-0.549940764904022, 1.75642704963684, 0.420389175415039));\nfloat sdf_125 = NTCO(pos_86, vec3(0.0914620161056519, 0.013810396194458, 0.0999814867973328),0.953131914138794,0.0167505741119385,0.724075317382813,0.182968974113464,0.128347337245941);\nMaterial mat_42 = MaterialV4(vec3(0.68523968366707, 0.6841781890160052, 0.7747187095190853), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_126 = MatSolidV4(sdf_125, mat_42);\nMATPoint sdf_127 = GeomOnlySmoothUnion(sdf_124, res_126, 0.0233094096183777);\nvec3 pos_87 = Translate3D(pos_0, vec3(0.389947086572647, -0.851387500762939, -0.617447555065155));\nvec3 pos_88 = AxisAngleRotate3D(pos_87, vec3(2.95907688140869, 0.052607748657465, -1.22091364860535));\nfloat sdf_128 = NTCO(pos_88, vec3(0.210998833179474, 0.10538238286972, 0.254456341266632),0.285954415798187,0.00596156716346741,0.597171127796173,0.322922617197037,0.971731066703796);\nMaterial mat_43 = MaterialV4(vec3(0.9678671365997451, 0.5080759869694084, 0.7343279197757812), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_129 = MatSolidV4(sdf_128, mat_43);\nMATPoint sdf_130 = GeomOnlySmoothUnion(sdf_127, res_129, 0.0562054514884949);\nvec3 pos_89 = Translate3D(pos_0, vec3(0.0319758988916874, 0.627357840538025, -0.237511917948723));\nvec3 pos_90 = AxisAngleRotate3D(pos_89, vec3(-2.05811309814453, 0.11890970915556, -1.95913469791412));\nfloat sdf_131 = NTCO(pos_90, vec3(0.223689615726471, 0.0611547231674194, 0.0134954452514648),0.0000605285167694092,0.00383988022804260,0.742573142051697,0.000747650861740112,0.00338459014892578);\nMaterial mat_44 = MaterialV4(vec3(0.24187666897351812, 0.29846785462475867, 0.803813707062637), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_132 = MatSolidV4(sdf_131, mat_44);\nMATPoint sdf_133 = GeomOnlySmoothUnion(sdf_130, res_132, 0.0569391846656799);\nvec3 pos_91 = Translate3D(pos_0, vec3(-0.137896820902824, 0.808759391307831, -0.33758533000946));\nvec3 pos_92 = AxisAngleRotate3D(pos_91, vec3(1.42148923873901, -1.20343422889709, 1.31211495399475));\nfloat sdf_134 = NTCO(pos_92, vec3(0.0117069482803345, 0.0520766973495483, 0.283858835697174),0.0000605285167694092,0.00287079811096191,0.944839537143707,0.433514058589935,0.00274249911308289);\nMaterial mat_45 = MaterialV4(vec3(0.5, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_135 = MatSolidV4(sdf_134, mat_45);\nMATPoint sdf_136 = GeomOnlySmoothUnion(sdf_133, res_135, 0.0406041741371155);\nvec3 pos_93 = Translate3D(pos_0, vec3(-0.108770303428173, 0.472332417964935, -0.0778885260224342));\nvec3 pos_94 = AxisAngleRotate3D(pos_93, vec3(0.524253964424133, -2.60024547576904, -1.71126794815063));\nfloat sdf_137 = NTCO(pos_94, vec3(0.0317291021347046, 0.0256758332252502, 0.231004595756531),0.878237545490265,0.0238679349422455,0.500765502452850,0.00704956054687500,0.0679752826690674);\nMaterial mat_46 = MaterialV4(vec3(0.49136151903484304, 0.20449302600505148, 0.3727405372099204), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_138 = MatSolidV4(sdf_137, mat_46);\nMATPoint sdf_139 = GeomOnlySmoothUnion(sdf_136, res_138, 0.00499182939529419);\nvec3 pos_95 = Translate3D(pos_0, vec3(-0.0353709310293198, 0.157343477010727, 0.135076388716698));\nvec3 pos_96 = AxisAngleRotate3D(pos_95, vec3(0.735409796237946, -0.309192448854446, 0.966831922531128));\nfloat sdf_140 = NTCO(pos_96, vec3(0.0241724252700806, 0.022632896900177, 0.211554825305939),0.963347792625427,0.00845095515251160,1.32401382923126,0.559843659400940,0.0259713828563690);\nMaterial mat_47 = MaterialV4(vec3(0.0209017378222629, 0.2935405889120911, 0.020702945576766107), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_141 = MatSolidV4(sdf_140, mat_47);\nMATPoint sdf_142 = GeomOnlySmoothUnion(sdf_139, res_141, 0.0140038132667542);\nvec3 pos_97 = Translate3D(pos_0, vec3(0.187157139182091, -0.0220437254756689, -0.504682302474976));\nvec3 pos_98 = AxisAngleRotate3D(pos_97, vec3(-0.289525866508484, -1.396559715271, 0.54473465681076));\nfloat sdf_143 = NTCO(pos_98, vec3(0.0430691838264465, 0.0121105909347534, 0.0936163067817688),0.947574257850647,0.00423315167427063,1.31409525871277,0.967304408550262,0.0159190595149994);\nMaterial mat_48 = MaterialV4(vec3(0.629914452624062, 0.6150124340125539, 0.21360130039983416), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_144 = MatSolidV4(sdf_143, mat_48);\nMATPoint sdf_145 = GeomOnlySmoothUnion(sdf_142, res_144, 0.150415897369385);\nvec3 pos_99 = Translate3D(pos_0, vec3(0.0792446285486221, 0.112236268818378, -0.0795431956648827));\nvec3 pos_100 = AxisAngleRotate3D(pos_99, vec3(-0.468825846910477, 1.81934332847595, 2.16837430000305));\nfloat sdf_146 = NTCO(pos_100, vec3(0.0355694070458412, 0.0391238033771515, 0.0466464757919312),0.604730963706970,0.00999999977648258,1.09504461288452,0.00999999977648258,0.0250000003725290);\nMaterial mat_49 = MaterialV4(vec3(0.7866075453918712, 0.2500415152993096, 0.7513695645785934), vec3(0.0, 0.0, 0.0), vec3(0.1, 0.9, 0.0));\nMATPoint res_147 = MatSolidV4(sdf_146, mat_49);\nMATPoint sdf_148 = GeomOnlySmoothUnion(sdf_145, res_147, 0.00999999977648258);\nreturn sdf_148;\n}\n\n// Module: MatFloor_v4\nMaterial MatFloor(vec3 p, vec3 n) {\n    Material mat;\n    float checker = mod(dot(ceil(p*0.2), vec3(1)), 2.0);\n    vec3 v = Voronoi(p + 2.45 + Fbm(p*1.5, 4)*2.0);\n    float fact = sat(pow(v.x*0.9,10.0));\n    float bt = sat(pow(v.z*0.0025, 0.7));\n    mat.albedo = vec3(fact);\n    vec3 marble = mix(vec3(0.9,0.87,0.85), \n                vec3(0.08,0.07,0.05), abs(fact-checker));\n    mat.albedo = marble;\n    mat.mrc.y = v.x*0.05 + 0.05;\n    return mat;\n}\n\n// Module: SCENE_NORMAL_GEOM\nvec3 SCENE_NORMAL_GEOM(in vec3 p )\n{\n  float eps = 0.001;\n  vec3 n;\n  float v = GEOM_EXPRESSION(p).x;\n  n.x = GEOM_EXPRESSION( vec3(p.x+eps, p.y, p.z) ).x - v;\n  n.y = GEOM_EXPRESSION( vec3(p.x, p.y+eps, p.z) ).x - v;\n  n.z = GEOM_EXPRESSION( vec3(p.x, p.y, p.z+eps) ).x - v;\n  return normalize(n);\n}\n\n// Module: LightPackage_v4\n#define SPECULAR_GGX 0\n#define SPECULAR_BLINN 1\n#define SPECULAR_BECKMANN 2\n#define SPECULAR_MODE SPECULAR_GGX\nstruct DirectionalLight {\n    vec3 direction;\n    vec3 color;\n    float energy;\n    float shadow_dist;\n};\nvec3 totalRayleigh()\n{\n    return (8.0 * pow(PI, 3.0) * pow(pow(_AS_n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * _AS_pn)) / (3.0 * _AS_N * pow(_lambda, vec3(4.0)) * (6.0 - 7.0 * _AS_pn));\n}\nfloat rayleighPhase(float cosTheta)\n{\n    return (3.0 / (16.0*PI)) * (1.0 + pow(cosTheta, 2.0));\n}\nvec3 totalMie()\n{\n    float c = (0.2 * _turbidity) * 10E-18;\n    return 0.434 * c * PI * pow((2.0 * PI) / _lambda, vec3(_V - 2.0)) * _K;\n}\nfloat hgPhase(float cosTheta, float g)\n{\n    return (1.0 / (4.0*PI)) * ((1.0 - pow(g, 2.0)) / pow(1.0 - 2.0*g*cosTheta + pow(g, 2.0), 1.5));\n}\nfloat sunIntensity(float zenithAngleCos)\n{\n    return max(0.0, 1.0 - exp(-((_cutoffAngle - acos(zenithAngleCos))/_steepness)));\n}\nvoid AtmosphericScattering(DirectionalLight light, vec3 worldNormal, \n    out float cosTheta, out vec3 Lin, out vec3 Fex) \n{\n    vec3 lightDirection = light.direction;\n    float lightEnergy = light.energy;\n    float sunfade = 1.0-clamp(1.0- exp(light.direction.z / 450000.0) ,0.0,1.0);\n    float reileigh = _reileighCoefficient - (1.0-sunfade);\n    vec3 betaR = totalRayleigh() * reileigh;\n    vec3 betaM = totalMie() * _mieCoefficient;\n    float zenithAngle = acos(max(0.0, dot(_up, worldNormal)));\n    float sR = _rayleighZenithLength / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253));\n    float sM = _mieZenithLength / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253));\n    Fex = exp(-(betaR * sR + betaM * sM));\n    cosTheta = dot(worldNormal, lightDirection);\n    float rPhase = rayleighPhase(cosTheta*0.5+0.5);\n    vec3 betaRTheta = betaR * rPhase;\n    float mPhase = hgPhase(cosTheta, _mieDirectionalG);\n    vec3 betaMTheta = betaM * mPhase;\n    Lin = pow(lightEnergy * ((betaRTheta + betaMTheta) / (betaR + betaM)) * (1.0 - Fex),vec3(1.5));\n    Lin *= mix(vec3(1.0),pow(lightEnergy * ((betaRTheta + betaMTheta) / (betaR + betaM)) * Fex,vec3(1.0/2.0)),clamp(pow(1.0-dot(_up, lightDirection),5.0),0.0,1.0));\n}\nvec3 Sky(DirectionalLight sun, vec3 viewDir) {\n    float cosElevOffset = cos(backgroundElevation);\n    float sinElevOffset = sin(backgroundElevation);\n    float cosAzimOffset = cos(backgroundAzimuth);\n    float sinAzimOffset = sin(backgroundAzimuth);\n    vec3 rotatedViewDir = viewDir;\n    float newX = rotatedViewDir.x * cosAzimOffset - rotatedViewDir.z * sinAzimOffset;\n    float newZ = rotatedViewDir.x * sinAzimOffset + rotatedViewDir.z * cosAzimOffset;\n    rotatedViewDir.x = newX;\n    rotatedViewDir.z = newZ;\n    float newY = rotatedViewDir.y * cosElevOffset - rotatedViewDir.z * sinElevOffset;\n    newZ = rotatedViewDir.y * sinElevOffset + rotatedViewDir.z * cosElevOffset;\n    rotatedViewDir.y = newY;\n    rotatedViewDir.z = newZ;\n    float CosTheta;\n    vec3 Lin;\n    vec3 Fex;\n    AtmosphericScattering(sun, rotatedViewDir, CosTheta, Lin, Fex);\n    float sundisk = smoothstep(AngularDiameterCos,AngularDiameterCos+0.00002,CosTheta);\n    vec3 L0 = sun.energy * 19000.0 * sundisk * Fex;\n    vec3 texColor = (Lin + L0) * 0.04;\n    texColor += vec3(0.0,0.001,0.0025)*0.3;\n    return texColor;\n}\nvec3 SkyExtinxtion(DirectionalLight light) \n{\n    float sunfade = 1.0-clamp(1.0-exp(light.direction.z),0.0,1.0);\n    float reileigh = _reileighCoefficient - (1.0-sunfade);\n    vec3 betaR = totalRayleigh() * reileigh;\n    vec3 betaM = totalMie() * _mieCoefficient;\n    float zenithAngle = acos(max(0.0, dot(_up, light.direction)));\n    float sR = _rayleighZenithLength / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253));\n    float sM = _mieZenithLength / (cos(zenithAngle) + 0.15 * pow(93.885 - ((zenithAngle * 180.0) / PI), -1.253));\n    return exp(-(betaR * sR + betaM * sM));\n}\nvec3 Env(vec3 view, DirectionalLight sun) {\n    float cosTheta;\n    vec3 Lin;\n    vec3 Fex;\n    AtmosphericScattering(sun, view, cosTheta, Lin, Fex);\n    vec3 L0 = Fex * 0.1;\n    vec3 texColor = (Lin+L0) * 0.04;\n    texColor += vec3(0.0,0.001,0.0025)*0.3;\n    return texColor;\n}\nvec3 SkyAmbient(DirectionalLight sun) {\n    return Env(normalize(sun.direction*1.8 + vec3(0,0,1)), sun);\n}\nfloat phong_diffuse()\n{\n    return (1.0 / PI);\n}\nvec3 fresnel_factor(in vec3 f0, in float product)\n{\n    return mix(f0, vec3(1.0), pow(1.01 - product, 5.0));\n}\nfloat D_blinn(in float roughness, in float NdH)\n{\n    float m = roughness * roughness;\n    float m2 = m * m;\n    float n = 2.0 / m2 - 2.0;\n    return (n + 2.0) / (2.0 * PI) * pow(NdH, n);\n}\nfloat D_beckmann(in float roughness, in float NdH)\n{\n    float m = roughness * roughness;\n    float m2 = m * m;\n    float NdH2 = NdH * NdH;\n    return exp((NdH2 - 1.0) / (m2 * NdH2)) / (PI * m2 * NdH2 * NdH2);\n}\nfloat D_GGX(in float roughness, in float NdH)\n{\n    float m = roughness * roughness;\n    float m2 = m * m;\n    float d = (NdH * m2 - NdH) * NdH + 1.0;\n    return m2 / (PI * d * d);\n}\nfloat G_schlick(in float roughness, in float NdV, in float NdL)\n{\n    float k = roughness * roughness * 0.5;\n    float _V = NdV * (1.0 - k) + k;\n    float L = NdL * (1.0 - k) + k;\n    return 0.25 / (_V * L);\n}\nvec3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in vec3 specular, in float roughness)\n{\n#if SPECULAR_MODE == SPECULAR_BLINN\n    float D = D_blinn(roughness, NdH);\n#elif SPECULAR_MODE == SPECULAR_BECKMANN\n    float D = D_beckmann(roughness, NdH);\n#elif SPECULAR_MODE == SPECULAR_GGX\n    float D = D_GGX(roughness, NdH);\n#endif\n    float G = G_schlick(roughness, NdV, NdL);\n    float rim = mix(1.0 - roughness * 0.9, 1.0, NdV);\n    return max((1.0 / rim) * specular * G * D, 0.0);\n}\nfloat Specular(vec3 l, vec3 n, vec3 r, float k)\n{\n    vec3 half_dir = normalize(l + r);\n    float spec_angle = max(dot(half_dir, n), 0.0);\n    return pow(spec_angle, k);\n}\nfloat AmbientOcclusion(vec3 p,vec3 n) {\n    const float SCALE = _AO_MAX_DIST / pow(2.0, float(_AO_STEPS))*2.0;\n    float ocl = 0.0;\n    for(int i = 1; i \u003c= _AO_STEPS; ++i) {\n        float dist = pow(2.0, float(i)) * SCALE;\n        ocl += 1.0 - (max(0.0, SCENE_EXPRESSION(p + n * dist).x) / dist);\n    }\n    return min(1.0-(ocl / float(_AO_STEPS)),1.0);\n}\nfloat Shadow(vec3 p,vec3 l, float d, float r)\n{\n    float res = 1.0;\n    float t = 0.1;\n    for (int i = 0; i \u003c _SHADOW_MAX_STEPS; ++i) {\n        if (res \u003c 0.0 || t \u003e d)\n            break;\n        float h = SCENE_EXPRESSION(p+t*l).x;\n        res = min(res, r * h / t);\n        t += h;    \n    }    \n    return clamp(res, 0.0, 1.0);\n}\nvec3 Shade(DirectionalLight sun, Material mat, vec3 p, vec3 rd, vec3 n, \n    vec3 reflection, vec3 clearcoat) \n{\n    vec3 ambient = SkyAmbient(sun) * 0.7;\n    ambient *= AmbientOcclusion(p, n);\n    vec3 specular = mix(vec3(0.02), mat.albedo, mat.mrc.x);\n    vec3 L = sun.direction;\n    vec3 N = n;\n    vec3 _V = -rd;\n    vec3 H = normalize(_V+L);\n    float NdL = max(0.000, dot(N, L));\n    float NdV = max(0.001, dot(N, _V));\n    float NdH = max(0.001, dot(N, H));\n    float HdV = max(0.001, dot(H, _V));\n    vec3 specfresnel = fresnel_factor(specular, HdV);\n    vec3 specref = cooktorrance_specular(NdL, NdV, NdH, specfresnel, mat.mrc.y);\n    specref *= vec3(NdL);\n    vec3 diffref = (vec3(1.0) - specfresnel) * phong_diffuse() * NdL;\n    float s = Shadow(p+n*0.1, L, sun.shadow_dist, 20.0);\n    vec3 reflected_light = vec3(0);\n    vec3 diffuse_light = vec3(0);\n    vec3 light_color = sun.color * sun.energy * 0.01;\n    reflected_light += specref * light_color * s;\n    diffuse_light += diffref * light_color * s;\n    reflected_light += min(vec3(0.99), fresnel_factor(specular, NdV)) * reflection;\n    reflected_light += min(vec3(0.99), fresnel_factor(vec3(0.02), NdV)) * clearcoat * 0.2;\n    diffuse_light += ambient * (1.0 / PI);\n    vec3 result = diffuse_light * mix(mat.albedo, vec3(0.0), mat.mrc.x);\n    result += reflected_light;\n    result += mat.emissive;\n    return result;\n}\n\n// Module: SphereTracePostTrace_v4\nMATPoint SphereTracePostTrace(in vec3 ro, in vec3 rd, float e, out bool _h,out int _s, float dist){\n    MATPoint res;\n    res.x = -1.0;\n    float b = dot(ro, ro) - _SCENE_RADIUS*_SCENE_RADIUS;\n    float c = dot(ro, rd);\n    float disc = c*c - b;\n    if (disc \u003c= 0.0) {\n        _h = false;\n        _s = 0;\n        return res;\n    }\n    float s   = sqrt(disc);\n    float t0  = -c - s;\n    float t1  = -c + s;\n    if (t1 \u003c 0.0) {\n        _h = false;\n        _s = 0;\n        return res;\n    }                   // both intersections behind camera\n    float tmin = max(max(1.0, t0), dist);\n    float tmax = min(20.0, t1);\n    if (_ADD_FLOOR_PLANE) {\n        float tp = -ro.y / rd.y;\n        if (tp \u003e 0.0 \u0026\u0026 tp \u003c tmax) {\n            tmax = tp;\n            res.x = tp;\n            _h = true;\n            _s = 0;\n        }\n    }\n    vec3 inv_rd = 1.0 / rd;  // hoist reciprocal\n    vec3 tA = ( _SCENE_BOX_CENTER - _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tB = ( _SCENE_BOX_CENTER + _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tMin3 = min(tA, tB);\n    vec3 tMax3 = max(tA, tB);\n    float tbmin = max( max(tMin3.x, tMin3.y), tMin3.z );\n    float tbmax = min( min(tMax3.x, tMax3.y), tMax3.z );\n    if (tbmin \u003c tbmax \u0026\u0026 tbmax \u003e 0.0 \u0026\u0026 tbmin \u003c tmax) {\n        tmin = max(tmin, tbmin);\n        tmax = min(tmax, tbmax);\n        float t = tmin;\n        for (int i = _ZERO; i \u003c _RAYCAST_MAX_STEPS \u0026\u0026 t \u003c tmax; i++) {\n            MATPoint h = SCENE_EXPRESSION(ro + rd * t);\n            if (abs(h.x) \u003c 0.0001) {\n                res.x = t;\n                res.mat = h.mat;\n                _h = true;\n                _s = i;\n                break;\n            }\n            t += h.x * _RAYCAST_CONSERVATIVE_STEPPING_RATE;\n        }\n    }\n    return res;\n}\n\n// Module: SphereTraceGeom_v4\nMATPoint SphereTraceGeom(in vec3 ro, in vec3 rd, float e, out bool _h,out int _s){\n    MATPoint res;\n    res.x = -1.0;\n    float b = dot(ro, ro) - _SCENE_RADIUS*_SCENE_RADIUS;\n    float c = dot(ro, rd);\n    float disc = c*c - b;\n    if (disc \u003c= 0.0) {\n        _h = false;\n        _s = 0;\n        return res;\n    }\n    float s   = sqrt(disc);\n    float t0  = -c - s;\n    float t1  = -c + s;\n    if (t1 \u003c 0.0) {\n        _h = false;\n        _s = 0;\n        return res;\n    }                   // both intersections behind camera\n    float tmin = max(1.0, t0);\n    float tmax = min(20.0, t1);\n    if (_ADD_FLOOR_PLANE) {\n        float tp = -ro.y / rd.y;\n        if (tp \u003e 0.0 \u0026\u0026 tp \u003c tmax) {\n            tmax = tp;\n            res.x = tp;\n            _h = true;\n            _s = 0;\n        }\n    }\n    vec3 inv_rd = 1.0 / rd;  // hoist reciprocal\n    vec3 tA = ( _SCENE_BOX_CENTER - _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tB = ( _SCENE_BOX_CENTER + _SCENE_BOX_SIZE - ro ) * inv_rd;\n    vec3 tMin3 = min(tA, tB);\n    vec3 tMax3 = max(tA, tB);\n    float tbmin = max( max(tMin3.x, tMin3.y), tMin3.z );\n    float tbmax = min( min(tMax3.x, tMax3.y), tMax3.z );\n    float t = 0.0;\n    if (tbmin \u003c tbmax \u0026\u0026 tbmax \u003e 0.0 \u0026\u0026 tbmin \u003c tmax) {\n        tmin = max(tmin, tbmin);\n        tmax = min(tmax, tbmax);\n        t = tmin;\n        for (int i = _ZERO; i \u003c _RAYCAST_MAX_STEPS \u0026\u0026 t \u003c tmax; i++) {\n            vec2 h = GEOM_EXPRESSION(ro + rd * t);\n            if (abs(h.x) \u003c 0.0001) {\n                _h = true;\n                _s = i;\n                break;\n            }\n            t += h.x * _RAYCAST_CONSERVATIVE_STEPPING_RATE;\n        }\n    }\n    res = SCENE_EXPRESSION(ro + rd * t);\n    return res;\n}\n\n// Module: BasicSun_v4\nDirectionalLight BasicSun()\n{\n    DirectionalLight sun;\n    float x = cos(sunElevation) * sin(sunAzimuth);\n    float y = sin(sunElevation);\n    float z = cos(sunElevation) * cos(sunAzimuth);\n    sun.direction = normalize(vec3(x, y, z));\n    sun.color = SkyExtinxtion(sun)* 19.0;\n    sun.energy = sunIntensity(max(0.0, sun.direction.z)) * _EE;\n    sun.shadow_dist = 100.0;\n    return sun;\n}\n\n// Module: background_v4\nvec3 background(vec3 r, DirectionalLight sun)\n{\n    return Sky(sun, r);\n}\n\n// Module: ShadeRayPostTrace_v4\nvec3 ShadeRayPostTrace(DirectionalLight sun, vec3 ro, vec3 rd, out int steps, float dist) {\n    bool hit = false;\n    int s = 0;\n    MATPoint res = SphereTracePostTrace(ro, rd, 100.0, hit, s, dist);\n    float t = res.x;\n    Material mat = res.mat;\n    steps += s;\n    vec3 pt = ro + t * rd;\n    if (!hit)\n        return background(rd, sun);\n    vec3 n = SCENE_NORMAL_GEOM(pt);\n    vec3 reflect_dir = reflect(rd, n);\n    vec3 clearcoat = vec3(0);\n    vec3 reflection;\n    if (mat.mrc.z \u003e 0.0 || mat.mrc.y == 0.0) {\n        s = 0;\n        res = SphereTraceGeom(pt+n*0.01, reflect_dir, 100.0, hit, s);\n        t = res.x;\n        steps += s;\n        if (hit) {\n            vec3 rpt = pt + t * reflect_dir;\n            vec3 rn = SCENE_NORMAL_GEOM(rpt);\n            vec3 sec_reflection = Env(reflect(reflect_dir, rn), sun);\n            clearcoat = Shade(sun, res.mat, rpt, reflect_dir, rn, \n                            sec_reflection, sec_reflection*mat.mrc.z);\n        } else\n            clearcoat = Env(reflect_dir, sun);\n    }\n    if (mat.mrc.y == 0.0)\n        reflection = clearcoat;\n    else {\n        float r = 1.0/max(mat.mrc.y, 0.00001);\n        float v = Shadow(pt+n*0.1, reflect_dir, 1000.0, r);\n        reflection = mix(SkyAmbient(sun)*0.1, Env(reflect_dir, sun), v);\n    }\n    clearcoat *= mat.mrc.z;\n    return Shade(sun, mat, pt, rd, n, reflection, clearcoat);\n}\n\n// Module: mainImage_post_trace_v4\nvoid mainImage_post_trace(out vec4 color, in vec2 pxy )\n{\n    float dist = texelFetch(distance_travelled, ivec2(pxy), 0).r;\n    vec2 mo = vec2(0.0, 0.0);\n    vec3 ta = vec3( 0.0, 1.0, -0.0 ) + cameraOrigin;\n    vec3 ro = ta + cameraDistance * vec3(\n        cos(cameraAngleX) * sin(cameraAngleY), // X component\n        sin(cameraAngleX),                     // Y component (elevation)\n        cos(cameraAngleX) * cos(cameraAngleY)  // Z component\n    );\n    mat3 ca = setCamera( ro, ta, 0.0 );\n    DirectionalLight sun = BasicSun();\n    int s = 0;\n    vec2 p = (2.0*(pxy)-resolution.xy)/resolution.xy;\n    vec3 rd = ca * normalize( vec3(p, _FOCAL_LENGTH) );\n    vec3 rgb = ShadeRayPostTrace(sun, ro, rd, s, dist);\n    rgb = ToneMapping(rgb);\n    color = vec4( rgb, 1.0 );\n}\n\n\nvoid main(void)\n{\n  \n  mainImage_post_trace(fragColor, gl_FragCoord.xy);\n}", "textures": {}, "uniforms": [{"default": -2.0, "label": "Background Azimuth", "max": 3.141592653589793, "min": -3.141592653589793, "name": "backgroundAzimuth", "set_name": "Knobs", "step": 0.006283185307179587, "type": "float"}, {"default": [0, -1.0, 0], "label": "Camera Origin", "max": [10.0, 10.0, 10.0], "min": [-10.0, -10.0, -10.0], "name": "cameraOrigin", "set_name": "Settings", "step": 0.02, "type": "vec3"}, {"default": 0.5, "label": "Sun Elevation", "max": 1.5707963267948966, "min": 0.0, "name": "sunElevation", "set_name": "Settings", "step": 0.0015707963267948967, "type": "float"}, {"default": 0.7853981633974483, "label": "Camera Angle Y", "max": 3.141592653589793, "min": -3.141592653589793, "name": "cameraAngleY", "set_name": "Settings", "step": 0.006283185307179587, "type": "float"}, {"default": 0.5, "label": "Background Elevation", "max": 0.7853981633974483, "min": -0.7853981633974483, "name": "backgroundElevation", "set_name": "Knobs", "step": 0.0015707963267948967, "type": "float"}, {"default": 0.0, "label": "Sun Azimuth", "max": 3.141592653589793, "min": -3.141592653589793, "name": "sunAzimuth", "set_name": "Settings", "step": 0.006283185307179587, "type": "float"}, {"default": 0.7853981633974483, "label": "Camera Angle X", "max": 3.141592653589793, "min": -3.141592653589793, "name": "cameraAngleX", "set_name": "Settings", "step": 0.006283185307179587, "type": "float"}, {"default": [512, 512], "label": "Resolution", "max": [10000.0, 10000.0], "min": [1.0, 1.0], "name": "resolution", "set_name": "Settings", "step": 9.999, "type": "vec2"}, {"default": 3.0, "label": "Camera Distance", "max": 10.0, "min": 0.0, "name": "cameraDistance", "set_name": "Settings", "step": 0.01, "type": "float"}]}, {"index": 2, "input_FBOs": ["distance_travelled", "intermediate_image"], "output_FBO": "image", "raw_uniforms": {}, "shader_code": "\n#version 300 es\n#ifdef GL_ES\nprecision highp float;\nprecision highp sampler2D;\n#endif\n\nout vec4 fragColor;\n\nuniform sampler2D distance_travelled;\nuniform sampler2D intermediate_image;\n\nuniform vec2 resolution; // (width, height)\nconst int nhbd = 1; // 1 -\u003e 3x3, 2 -\u003e 5x5\n\nconst float OUTLINE_AMOUNT = 0.8;\n\nbool is_outline(vec2 uv)\n{\n    vec2 texel = 1.0 / resolution;\n\n    float center_ind = texture(distance_travelled, uv).g;\n    int center_id = int(floor(center_ind + 0.5));\n\n    // Check neighborhood in UV space\n    for (int dy = -nhbd; dy \u003c= nhbd; ++dy) {\n        for (int dx = -nhbd; dx \u003c= nhbd; ++dx) {\n            if (dx == 0 \u0026\u0026 dy == 0) continue; // skip self\n            vec2 offset = vec2(float(dx), float(dy)) * texel;\n            float n_ind = texture(distance_travelled, uv + offset).g;\n            int n_id = int(floor(n_ind + 0.5));\n            if (n_id \u003c center_id) return true;\n        }\n    }\n    return false;\n}\nvoid main(void)\n{\n    vec2 uv = gl_FragCoord.xy / resolution;\n\n    vec4 base_color = texture(intermediate_image, uv);\n    bool outline = is_outline(uv);\n\n    fragColor = outline\n        ? mix(base_color, vec4(0.0, 0.0, 0.0, 1.0), OUTLINE_AMOUNT)\n        : base_color;\n    float center_ind = texture(distance_travelled, uv).g;\n    int center_id = int(floor(center_ind + 0.5));\n    fragColor = center_id \u003c 0 ? vec4(1.0, 1.0, 1.0, 1.0) : fragColor;\n}\n", "textures": {}, "uniforms": []}];
+  const fboSpecs = {"distance_travelled": {"height": 512, "name": "distance_travelled", "type": "vec2", "width": 512}, "image": {"height": 512, "name": "image", "type": "vec4", "width": 512}, "intermediate_image": {"height": 512, "name": "intermediate_image", "type": "vec4", "width": 512}};
+  const selfRefBuffers = [];
+  
+  // Final output FBO dimensions (for canvas sizing)
+  const finalOutputSize = {"height": 512, "width": 512};
+  
+  // Extract texture registry from Jinja
+  const textureRegistry = {
+    
+  };
+  
+  // Extract UBO registry from Jinja
+  const uboRegistry = {
+    
+  };
+  
+  // Store original shader code for reset functionality
+  const originalShaderCodes = passes.map(p => p.shader_code);
+  const staticShaderCodes = [...originalShaderCodes];
+
+  // WebGL context is already created in common_script.js
+  gl.getExtension('EXT_color_buffer_float');
+
+  // Vertex shader
+  const vertexShaderSource = `#version 300 es
+  in vec2 position;
+  void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+  }`;
+  
+  // Simple blit shader for copying 'image' FBO to canvas
+  const blitFragmentShader = `#version 300 es
+  precision highp float;
+  uniform sampler2D imageTex;
+  uniform vec2 resolution;
+  out vec4 fragColor;
+  
+  void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    fragColor = texture(imageTex, uv);
+  }`;
+  
+  // Create blit program
+  let blitProgram = null;
+  try {
+    blitProgram = twgl.createProgramInfo(gl, [vertexShaderSource, blitFragmentShader]);
+    console.log('Created blit program for final output');
+  } catch (error) {
+    console.error('Error creating blit program:', error);
+  }
+
+  // Fullscreen quad (using different variable names to avoid conflict with common_script.js)
+  const multipassArrays = {
+    position: { numComponents: 2, data: [-1,-1, 1,-1, -1,1, 1,1] }
+  };
+  const multipassBufferInfo = twgl.createBufferInfoFromArrays(gl, multipassArrays);
+
+  // Create framebuffers based on specifications
+  let fbos = {};
+  let currentFrame = 0;
+  
+  // Map FBO types to WebGL formats
+  function getFBOAttachment(type) {
+    const formatMap = {
+      'float': {
+        internalFormat: gl.R32F,
+        format: gl.RED,
+        type: gl.FLOAT,
+        min: gl.NEAREST,
+        mag: gl.NEAREST,
+        wrap: gl.CLAMP_TO_EDGE
+      },
+      'vec2': {
+        internalFormat: gl.RG32F,
+        format: gl.RG,
+        type: gl.FLOAT,
+        min: gl.NEAREST,
+        mag: gl.NEAREST,
+        wrap: gl.CLAMP_TO_EDGE
+      },
+      'vec3': {
+        internalFormat: gl.RGB32F,
+        format: gl.RGB,
+        type: gl.FLOAT,
+        min: gl.NEAREST,
+        mag: gl.NEAREST,
+        wrap: gl.CLAMP_TO_EDGE
+      },
+      'vec4': {
+        internalFormat: gl.RGBA32F,
+        format: gl.RGBA,
+        type: gl.FLOAT,
+        min: gl.NEAREST,
+        mag: gl.NEAREST,
+        wrap: gl.CLAMP_TO_EDGE
+      }
+    };
+    return formatMap[type] || formatMap['vec4'];
+  }
+
+  // Function to create/recreate FBOs with specified sizes
+  function createFBOs() {
+    // Clean up old FBOs
+    for (const fbo of Object.values(fbos)) {
+      if (fbo && fbo.framebuffer) {
+        gl.deleteFramebuffer(fbo.framebuffer);
+        if (fbo.attachments) {
+          fbo.attachments.forEach(att => {
+            if (att instanceof WebGLTexture) {
+              gl.deleteTexture(att);
+            }
+          });
+        }
+      }
+    }
+    fbos = {};
+    
+    // Get resolution scale factor
+    
+    const scale = uniformValues.resolutionScale || 1.0;
+    
+    
+    // For each FBO spec, create the FBO(s) with specified dimensions * scale
+    for (const [name, spec] of Object.entries(fboSpecs)) {
+      // Apply scale and clamp to safety limit
+      const width = Math.min(Math.floor(spec.width * scale), 2048);
+      const height = Math.min(Math.floor(spec.height * scale), 2048);
+      const attachment = getFBOAttachment(spec.type);
+      
+      if (selfRefBuffers.includes(name)) {
+        // Create TWO buffers for ping-pong
+        fbos[name + '_0'] = twgl.createFramebufferInfo(gl, [attachment], width, height);
+        fbos[name + '_1'] = twgl.createFramebufferInfo(gl, [attachment], width, height);
+        console.log(`Created ${spec.type.toUpperCase()} ping-pong buffers: ${name}_0 and ${name}_1 (${width}x${height})`);
+      } else {
+        // Create ONE buffer
+        fbos[name] = twgl.createFramebufferInfo(gl, [attachment], width, height);
+        console.log(`Created ${spec.type.toUpperCase()} buffer: ${name} (${width}x${height})`);
+      }
+    }
+
+    // Clear all FBOs after creation
+    for (const [fboName, fbo] of Object.entries(fbos)) {
+      twgl.bindFramebufferInfo(gl, fbo);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    twgl.bindFramebufferInfo(gl, null);
+    
+    // Reset frame counter when recreating FBOs
+    currentFrame = 0;
+  }
+
+  // Variables for loaded textures
+  let loadedTextures = {};
+  
+  // Compile shaders
+  let programs = [];
+  
+  function compileShaders(shaderCodes) {
+    // Clean up old programs
+    programs.forEach(prog => {
+      if (prog && prog.program) {
+        gl.deleteProgram(prog.program);
+      }
+    });
+    
+    programs = shaderCodes.map((shaderCode, i) => {
+      try {
+        const prog = twgl.createProgramInfo(gl, [vertexShaderSource, shaderCode]);
+        
+        
+        
+        console.log(`Compiled shader ${i}`);
+        return prog;
+      } catch (error) {
+        console.error(`Error compiling shader ${i}:`, error);
+        // Return null to allow partial compilation
+        return null;
+      }
+    });
+    
+    return programs;
+  }
+  
+  
+  // Initial shader compilation
+  programs = compileShaders(passes.map(p => p.shader_code));
+
+  // Async initialization function
+  async function init() {
+    
+    
+    
+    
+    // Start render loop
+    requestAnimationFrame(render);
+  }
+
+  // Function to resize canvas - scale canvas with FBOs (always needed)
+  function resizeCanvasForMultipass() {
+    
+    const scale = uniformValues.resolutionScale || 1.0;
+    canvas.width = Math.min(Math.floor(finalOutputSize.width * scale), 2048);
+    canvas.height = Math.min(Math.floor(finalOutputSize.height * scale), 2048);
+    
+    
+    // Also update the canvas container size to match
+    const container = document.getElementById('canvas-container');
+    if (container) {
+      container.style.width = canvas.width + 'px';
+      container.style.height = canvas.height + 'px';
+    }
+    
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    console.log(`Canvas size (image): ${canvas.width}x${canvas.height}`);
+  }
+  
+  // Set initial canvas size (always needed)
+  resizeCanvasForMultipass();
+  
+  // Create FBOs (always needed)
+  createFBOs();
+
+  
+
+  function render(timeMs) {
+    
+    
+    // Update time uniform in uniformValues (managed by common_script.js)
+    const time = timeMs * 0.001;
+    uniformValues.time = time;
+    
+    // Process each pass (all render to FBOs)
+    passes.forEach((pass, passIdx) => {
+      // Figure out where to render to
+      let targetFBO = null;
+      if (selfRefBuffers.includes(pass.output_FBO)) {
+        // Use current frame index to pick buffer
+        targetFBO = fbos[pass.output_FBO + '_' + (currentFrame % 2)];
+      } else {
+        targetFBO = fbos[pass.output_FBO];
+      }
+
+      // Bind target (all passes render to FBOs, including 'image')
+      twgl.bindFramebufferInfo(gl, targetFBO);
+      
+      // Clear if not self-referencing
+      if (!selfRefBuffers.includes(pass.output_FBO)) {
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+
+      // Use program (skip if compilation failed)
+      if (!programs[passIdx]) {
+        console.error(`Skipping pass ${passIdx} - shader compilation failed`);
+        return; // Use return instead of continue in forEach
+      }
+      gl.useProgram(programs[passIdx].program);
+
+      // Setup uniforms - use uniformValues which contains all uniforms
+      const uniforms = {
+        ...uniformValues,  // Include all uniform values (time, camera params, etc.)
+        
+      };
+      
+      // Set resolution based on target FBO (all passes use FBO dimensions)
+      uniforms.resolution = [targetFBO.width, targetFBO.height];
+
+      // Add input textures
+      pass.input_FBOs.forEach(inputName => {
+        if (selfRefBuffers.includes(inputName)) {
+          // For self-referencing buffers:
+          // If we're reading from the same buffer we're writing to, read from the OTHER one
+          if (inputName === pass.output_FBO) {
+            // Read from the previous frame (opposite buffer)
+            const readIdx = 1 - (currentFrame % 2);
+            const fbo = fbos[inputName + '_' + readIdx];
+            if (!fbo || !fbo.attachments || !fbo.attachments[0]) {
+              console.error(`ERROR: FBO ${inputName}_${readIdx} has no attachments!`);
+              return;
+            }
+            uniforms[inputName] = fbo.attachments[0];
+          } else {
+            // Read from the current frame (same index)
+            const readIdx = currentFrame % 2;
+            const fbo = fbos[inputName + '_' + readIdx];
+            if (!fbo || !fbo.attachments || !fbo.attachments[0]) {
+              console.error(`ERROR: FBO ${inputName}_${readIdx} has no attachments!`);
+              return;
+            }
+            uniforms[inputName] = fbo.attachments[0];
+          }
+        } else {
+          const fbo = fbos[inputName];
+          if (!fbo || !fbo.attachments || !fbo.attachments[0]) {
+            console.error(`ERROR: FBO ${inputName} has no attachments!`);
+            return;
+          }
+          uniforms[inputName] = fbo.attachments[0];
+        }
+      });
+
+      // Set uniforms and draw
+      twgl.setUniforms(programs[passIdx], uniforms);
+      twgl.setBuffersAndAttributes(gl, programs[passIdx], multipassBufferInfo);
+      twgl.drawBufferInfo(gl, multipassBufferInfo, gl.TRIANGLE_STRIP);
+    });
+
+    // Increment frame counter for ping-pong
+    currentFrame++;
+    
+    // Final blit: Copy the 'image' FBO to canvas
+    if (fbos['image'] && blitProgram) {
+      twgl.bindFramebufferInfo(gl, null);  // Bind canvas
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      
+      // Use the blit shader to copy FBO to canvas
+      gl.useProgram(blitProgram.program);
+      const blitUniforms = {
+        resolution: [canvas.width, canvas.height],
+        imageTex: fbos['image'].attachments[0]
+      };
+      twgl.setUniforms(blitProgram, blitUniforms);
+      twgl.setBuffersAndAttributes(gl, blitProgram, multipassBufferInfo);
+      twgl.drawBufferInfo(gl, multipassBufferInfo, gl.TRIANGLE_STRIP);
+    }
+    
+    requestAnimationFrame(render);
+  }
+
+  // Start initialization
+  init();
+  
+  
+  
+  // Always include primitive tracking (UI visibility controlled by show_primitive_tracking)
+  // Primitive Tracking - Click to select primitives from FBO
+
+let primitiveTrackingEnabled = true;  // Always enabled by default
+let selectedPrimitiveId = null;
+let mouseDownPos = null;
+let isDragging = false;
+
+/**
+ * Reads pixel data from a framebuffer at the specified position
+ * @param {WebGL2RenderingContext} gl - WebGL context
+ * @param {Object} fbo - TWGL framebuffer info
+ * @param {number} x - X coordinate in canvas space
+ * @param {number} y - Y coordinate in canvas space
+ * @param {number} channels - Number of channels (1=R, 2=RG, 3=RGB, 4=RGBA)
+ * @returns {Float32Array} Pixel data
+ */
+function readPixelFromFBO(gl, fbo, x, y, channels) {
+  // Bind the framebuffer
+  twgl.bindFramebufferInfo(gl, fbo);
+  
+  // Prepare pixel buffer based on channel count
+  const formatMap = {
+    1: gl.RED,
+    2: gl.RG,
+    3: gl.RGB,
+    4: gl.RGBA
+  };
+  
+  const format = formatMap[channels] || gl.RGBA;
+  const pixelData = new Float32Array(channels);
+  
+  // Read pixel (Y is inverted in WebGL)
+  const canvasY = canvas.height - y - 1;
+  gl.readPixels(x, canvasY, 1, 1, format, gl.FLOAT, pixelData);
+  
+  // Unbind framebuffer
+  twgl.bindFramebufferInfo(gl, null);
+  
+  return pixelData;
+}
+
+/**
+ * Tracks mouse down position to detect dragging
+ */
+function handleMouseDown(event) {
+  const rect = canvas.getBoundingClientRect();
+  mouseDownPos = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+  isDragging = false;
+}
+
+/**
+ * Detects if mouse has moved significantly (dragging)
+ */
+function handleMouseMove(event) {
+  if (mouseDownPos) {
+    const rect = canvas.getBoundingClientRect();
+    const currentX = event.clientX - rect.left;
+    const currentY = event.clientY - rect.top;
+    const distance = Math.sqrt(
+      Math.pow(currentX - mouseDownPos.x, 2) + 
+      Math.pow(currentY - mouseDownPos.y, 2)
+    );
+    
+    // If moved more than 5 pixels, consider it a drag
+    if (distance > 5) {
+      isDragging = true;
+    }
+  }
+}
+
+/**
+ * Handles canvas click for primitive selection (only if not dragging)
+ */
+function handleCanvasClick(event) {
+  if (!primitiveTrackingEnabled || isDragging) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((event.clientX - rect.left) * (canvas.width / rect.width));
+  const y = Math.floor((event.clientY - rect.top) * (canvas.height / rect.height));
+  
+  // Check if distance_travelled FBO exists
+  const fboName = 'distance_travelled';
+  let targetFBO = fbos[fboName];
+  
+  // Handle ping-pong buffers
+  if (!targetFBO && selfRefBuffers.includes(fboName)) {
+    const readIdx = currentFrame % 2;
+    targetFBO = fbos[fboName + '_' + readIdx];
+  }
+  
+  if (!targetFBO) {
+    console.warn('distance_travelled FBO not found');
+    return;
+  }
+  
+  // Read the vec2 pixel data (distance, primitive_id)
+  const pixelData = readPixelFromFBO(gl, targetFBO, x, y, 2);
+  
+  // Extract primitive ID (second component of vec2)
+  selectedPrimitiveId = Math.floor(pixelData[1]);
+  
+  // Update UI
+  const displayElement = document.getElementById('selected-primitive-id');
+  if (displayElement) {
+    displayElement.textContent = selectedPrimitiveId;
+  }
+  
+  // Update shader with new selection
+  updateSelectIdInShader(selectedPrimitiveId);
+  
+  // Trigger primitive editing callback if available
+  if (typeof onPrimitiveSelectedForEditing === 'function') {
+    onPrimitiveSelectedForEditing(selectedPrimitiveId);
+  }
+}
+
+/**
+ * Toggles primitive tracking mode
+ */
+function togglePrimitiveTracking() {
+  primitiveTrackingEnabled = !primitiveTrackingEnabled;
+  
+  const button = document.getElementById('disable-tracking-btn');
+  if (button) {
+    button.textContent = primitiveTrackingEnabled ? 'Disable Tracking' : 'Enable Tracking';
+    button.classList.toggle('bg-red-100', primitiveTrackingEnabled);
+    button.classList.toggle('hover:bg-red-200', primitiveTrackingEnabled);
+    button.classList.toggle('text-red-700', primitiveTrackingEnabled);
+    button.classList.toggle('bg-green-100', !primitiveTrackingEnabled);
+    button.classList.toggle('hover:bg-green-200', !primitiveTrackingEnabled);
+    button.classList.toggle('text-green-700', !primitiveTrackingEnabled);
+  }
+}
+
+/**
+ * Modifies a shader by replacing a #define line
+ * @param {string} shaderCode - Original shader code
+ * @param {string} defineName - Name of the define (e.g., "SELECT_ID")
+ * @param {string|number} newValue - New value for the define
+ * @returns {string} Modified shader code
+ */
+function modifyShaderDefine(shaderCode, defineName, newValue) {
+  // Match #define DEFINE_NAME with any value (including negative numbers, floats, etc.)
+  const regex = new RegExp(`^(\\s*#define\\s+${defineName}\\s+).*$`, 'm');
+  
+  // Use a function for replacement to avoid $1 interpolation issues
+  const result = shaderCode.replace(regex, (match, prefix) => {
+    return prefix + newValue;
+  });
+  
+  return result;
+}
+
+/**
+ * Updates a specific shader pass with modified code
+ * @param {number} passIndex - Index of the shader pass to update
+ * @param {string} newShaderCode - New shader code
+ */
+function updateShaderPass(passIndex, newShaderCode) {
+  if (passIndex < 0 || passIndex >= passes.length) {
+    console.error(`Invalid pass index: ${passIndex}`);
+    return;
+  }
+  
+  // Update the pass data
+  passes[passIndex].shader_code = newShaderCode;
+  
+  // Recompile just this shader
+  try {
+    const newProgram = twgl.createProgramInfo(gl, [vertexShaderSource, newShaderCode]);
+    
+    // Set up UBO bindings for the new program
+    
+    
+    // Clean up old program
+    if (programs[passIndex] && programs[passIndex].program) {
+      gl.deleteProgram(programs[passIndex].program);
+    }
+    
+    // Replace with new program
+    programs[passIndex] = newProgram;
+    console.log(`Recompiled shader pass ${passIndex}`);
+  } catch (error) {
+    console.error(`Error recompiling shader pass ${passIndex}:`, error);
+  }
+}
+
+/**
+ * Updates the SELECT_ID in the third shader (index 2)
+ * @param {number} primitiveId - The primitive ID to select
+ */
+function updateSelectIdInShader(primitiveId) {
+  const targetPassIndex = 2;  // Third shader (0-indexed)
+  
+  if (targetPassIndex >= passes.length) {
+    console.warn(`Shader pass ${targetPassIndex} does not exist`);
+    return;
+  }
+  
+  const currentShaderCode = passes[targetPassIndex].shader_code;
+  const modifiedShaderCode = modifyShaderDefine(currentShaderCode, 'SELECT_ID', primitiveId);
+  
+  if (modifiedShaderCode !== currentShaderCode) {
+    updateShaderPass(targetPassIndex, modifiedShaderCode);
+  }
+}
+
+// Set up event listeners
+canvas.addEventListener('mousedown', handleMouseDown);
+canvas.addEventListener('mousemove', handleMouseMove);
+canvas.addEventListener('click', handleCanvasClick);
+
+document.getElementById('disable-tracking-btn')?.addEventListener('click', togglePrimitiveTracking);
+
+</script>
+
+
+  </main>
+
+</body>
+</html>
